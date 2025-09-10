@@ -12,7 +12,7 @@ import {
   parseCombination,
 } from "./parseCombination";
 
-export interface ParseHotkeysOptions {
+export interface MatchesHotkeysOptions {
   /**
    * Custom comparator passed to `isEqualWith` to decide whether a parsed hotkey
    * combination matches the provided `KeyboardEvent`.
@@ -38,10 +38,10 @@ export interface Hotkey {
  * Expands each hotkey via `parseCombination`, then compares each expanded
  * combination against the event using `isEqualWith` + the (optional) custom comparator.
  */
-export function parseHotkeys(
+export function matchesHotkeys(
   hotkeys: Hotkey[],
   event: KeyboardEvent,
-  { comparator = DEFAULT_COMPARATOR }: ParseHotkeysOptions = {},
+  { comparator = DEFAULT_COMPARATOR }: MatchesHotkeysOptions = {},
 ) {
   return hotkeys.some(({ combination, options }) =>
     parseCombination(combination, options).some((parsedCombination) =>
@@ -73,37 +73,37 @@ if (import.meta.vitest) {
       ...partial,
     }) as unknown as KeyboardEvent;
 
-  it("parseHotkeys - single simple hotkey (string form)", () => {
+  it("matchesHotkeys - single simple hotkey (string form)", () => {
     const hotkeys: Hotkey[] = [{ combination: "ctrl+a" }];
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),
     ).toBe(true);
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyB", key: "b", keyCode: 66, which: 66, ctrlKey: true }),
       ),
     ).toBe(false);
   });
 
-  it("parseHotkeys - array form combination", () => {
+  it("matchesHotkeys - array form combination", () => {
     const hotkeys: Hotkey[] = [{ combination: ["ctrl", "a"] }];
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),
     ).toBe(true);
   });
 
-  it("parseHotkeys - ambiguous modifier expansion (shift as main)", () => {
+  it("matchesHotkeys - ambiguous modifier expansion (shift as main)", () => {
     const hotkeys: Hotkey[] = [{ combination: "shift" }];
     // Should match both ShiftLeft and ShiftRight events
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({
           code: "ShiftLeft",
@@ -115,7 +115,7 @@ if (import.meta.vitest) {
       ),
     ).toBe(true);
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({
           code: "ShiftRight",
@@ -128,34 +128,34 @@ if (import.meta.vitest) {
     ).toBe(true);
   });
 
-  it("parseHotkeys - multiple hotkeys (first fails, second matches)", () => {
+  it("matchesHotkeys - multiple hotkeys (first fails, second matches)", () => {
     const hotkeys: Hotkey[] = [
       { combination: "ctrl+b" },
       { combination: "ctrl+a" },
     ];
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),
     ).toBe(true);
   });
 
-  it("parseHotkeys - allowCodeAsModifier = false blocks code token as leading modifier", () => {
+  it("matchesHotkeys - allowCodeAsModifier = false blocks code token as leading modifier", () => {
     const hotkeys: Hotkey[] = [
       { combination: "ControlLeft+a", options: { allowCodeAsModifier: false } },
       { combination: "ctrl+a" },
     ];
     // Event representing ctrl+a should not match the first (blocked), but matches second
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),
     ).toBe(true);
   });
 
-  it("parseHotkeys - custom comparator ignoring shiftKey (built via eq/and/or)", () => {
+  it("matchesHotkeys - custom comparator ignoring shiftKey (built via eq/and/or)", () => {
     // Build a comparator that mimics DEFAULT_COMPARATOR but omits shiftKey from comparisons.
     const IGNORE_SHIFT_COMPARATOR: Comparator = or(
       and(eq("key", "altKey", "ctrlKey", "metaKey")),
@@ -167,7 +167,7 @@ if (import.meta.vitest) {
     const hotkeys: Hotkey[] = [{ combination: "a" }];
     // Event has shiftKey true but comparator ignores it, so it still matches.
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, shiftKey: true }),
         { comparator: IGNORE_SHIFT_COMPARATOR },
@@ -175,23 +175,23 @@ if (import.meta.vitest) {
     ).toBe(true);
   });
 
-  it("parseHotkeys - no match returns false", () => {
+  it("matchesHotkeys - no match returns false", () => {
     const hotkeys: Hotkey[] = [{ combination: "ctrl+x" }];
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),
     ).toBe(false);
   });
 
-  it("parseHotkeys - platform aware 'mod' mapping", () => {
+  it("matchesHotkeys - platform aware 'mod' mapping", () => {
     const hotkeys: Hotkey[] = [{ combination: "mod+a" }];
     defineUA(
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/123.0.0.0 Safari/537.36",
     );
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, metaKey: true }),
       ),
@@ -200,7 +200,7 @@ if (import.meta.vitest) {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123.0.0.0 Safari/537.36",
     );
     expect(
-      parseHotkeys(
+      matchesHotkeys(
         hotkeys,
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),

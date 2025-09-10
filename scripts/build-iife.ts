@@ -17,7 +17,7 @@ async function buildIife() {
                 [entryAlias]: entryPath,
               },
               formats: ["iife"],
-              name: "Finder",
+              name: "MatchesHotkeys",
             },
             rollupOptions: undefined,
             outDir: "dist/iife",

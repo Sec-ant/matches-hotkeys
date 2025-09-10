@@ -1,8 +1,8 @@
-# parse-hotkeys
+# matches-hotkeys
 
-A clean and efficient hotkey parsing library that makes keyboard shortcuts simple to work with. Built for accuracy (W3C standards), clarity (straightforward results), and developer-friendly features (aliases, cross-platform `mod` key, flexible matching rules).
+A clean and efficient hotkey matching library that makes keyboard shortcuts simple to work with. Built for accuracy (W3C standards), clarity (straightforward results), and developer-friendly features (aliases, cross-platform `mod` key, flexible matching rules).
 
-This library focuses on doing one thing well: parsing user-defined shortcut specifications and matching them against `KeyboardEvent` objects. It doesn't try to handle event listeners, global registries, or conflict resolution – you can combine those features yourself.
+This library focuses on doing one thing well: matching user-defined shortcut specifications against `KeyboardEvent` objects. It doesn't try to handle event listeners, global registries, or conflict resolution – you can combine those features yourself.
 
 ## Why choose this hotkey library?
 
@@ -18,11 +18,11 @@ Most lightweight hotkey helpers stick to one comparison approach (usually just `
 ## Installation
 
 ```bash
-pnpm add parse-hotkeys
+pnpm add matches-hotkeys
 # or
-npm install parse-hotkeys
+npm install matches-hotkeys
 # or
-yarn add parse-hotkeys
+yarn add matches-hotkeys
 ```
 
 Ships with ES Module, CommonJS, and IIFE builds plus TypeScript declarations.
@@ -43,7 +43,7 @@ The library provides three core functions that work together in a layered archit
    - Processes modifiers directly, uses `resolveKey` only for the main key
    - Returns all possible variants for ambiguous inputs
 
-3. **`parseHotkeys(hotkeys, event, options?)`** - Event matching
+3. **`matchesHotkeys(hotkeys, event, options?)`** - Event matching
    - Takes an array of hotkey specs and a `KeyboardEvent`
    - Uses `parseCombination` internally to expand each spec
    - Returns `true` if any variant matches the event
@@ -53,10 +53,10 @@ The library provides three core functions that work together in a layered archit
 ```mermaid
 graph TD
     %% Input Layer
-    A[Hotkey Specs Array] --> B[parseHotkeys]
+    A[Hotkey Specs Array] --> B[matchesHotkeys]
     A1[KeyboardEvent] --> B
 
-    %% Top Layer: parseHotkeys
+    %% Top Layer: matchesHotkeys
     B --> C[For each hotkey spec...]
     C --> D[parseCombination]
 
@@ -77,8 +77,8 @@ graph TD
     J --> K
     K --> L[ParsedCombination:<br/>ctrlKey: true, code: KeyA, key: a]
 
-    %% Return to parseHotkeys
-    L --> M[parseHotkeys compares<br/>with KeyboardEvent]
+    %% Return to matchesHotkeys
+    L --> M[matchesHotkeys compares<br/>with KeyboardEvent]
     M --> N{Event matches?}
     N -->|Yes| O[Return true]
     N -->|No| P[Return false]
@@ -100,13 +100,13 @@ Each function builds on the previous one:
 
 - `resolveKey` handles the complexity of key identification and aliasing
 - `parseCombination` orchestrates modifier logic and `resolveKey` calls
-- `parseHotkeys` uses `parseCombination` results to match real keyboard events
+- `matchesHotkeys` uses `parseCombination` results to match real keyboard events
 
 This layered approach means you can use any level directly:
 
 - Use `resolveKey` for custom key processing
 - Use `parseCombination` for parsing without event matching
-- Use `parseHotkeys` for complete hotkey parsing functionality
+- Use `matchesHotkeys` for complete hotkey matching functionality
 
 ---
 
@@ -138,7 +138,7 @@ When there's ambiguity, the parser returns multiple variants instead of guessing
 - `"0"` → top row `Digit0` and `Numpad0`
 - `"+"` → `NumpadAdd` and shifted `Equal`
 
-Your code typically feeds each variant into a matcher (`parseHotkeys`) which returns on the first match.
+Your code typically feeds each variant into a matcher (`matchesHotkeys`) which returns on the first match.
 
 ### Result Shape
 
@@ -164,7 +164,7 @@ We keep both `keyCode` and `which` because some existing code still checks them.
 | Function                                     | Purpose                                                                                 |
 | -------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `parseCombination(combination, options?)`    | Parse user input into 0..n standardized variants                                        |
-| `parseHotkeys(hotkeys, event, options?)`     | Test if a `KeyboardEvent` matches any of the provided shortcut specs                    |
+| `matchesHotkeys(hotkeys, event, options?)`   | Test if a `KeyboardEvent` matches any of the provided shortcut specs                    |
 | `resolveKey(token)`                          | Low-level: resolve a single key token (used internally)                                 |
 | `eq(...fields)`                              | Build a comparator that checks equality for specific fields                             |
 | `and(...comparators)` / `or(...comparators)` | Combine comparators logically                                                           |
@@ -179,7 +179,7 @@ Full type signatures are in the source – we avoid duplicating them here to red
 Need stricter or looser rules? Provide a custom comparator. Example: ignore `shiftKey` when matching symbol shortcuts where the symbol itself implies shift.
 
 ```ts
-import { parseHotkeys, eq, and, or, type Comparator } from "parse-hotkeys";
+import { matchesHotkeys, eq, and, or, type Comparator } from "matches-hotkeys";
 
 // Comparator that ignores shift but still requires other modifiers and main key identity
 const IGNORE_SHIFT: Comparator = or(
@@ -190,7 +190,7 @@ const IGNORE_SHIFT: Comparator = or(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (parseHotkeys([{ combination: "a" }], e, { comparator: IGNORE_SHIFT })) {
+  if (matchesHotkeys([{ combination: "a" }], e, { comparator: IGNORE_SHIFT })) {
     // Treat "a" and "Shift+a" the same
   }
 });
@@ -203,12 +203,12 @@ document.addEventListener("keydown", (e) => {
 Common UX pattern: `cmd+shift+p` (macOS) / `ctrl+shift+p` (Windows/Linux). Write once with `mod`.
 
 ```ts
-import { parseHotkeys } from "parse-hotkeys";
+import { matchesHotkeys } from "matches-hotkeys";
 
 const OPEN_PALETTE = [{ combination: "mod+shift+p" }];
 
 window.addEventListener("keydown", (e) => {
-  if (parseHotkeys(OPEN_PALETTE, e)) {
+  if (matchesHotkeys(OPEN_PALETTE, e)) {
     e.preventDefault();
     openCommandPalette();
   }
@@ -226,7 +226,7 @@ const SAVE = [
 ];
 
 window.addEventListener("keydown", (e) => {
-  if (parseHotkeys(SAVE, e)) saveDocument();
+  if (matchesHotkeys(SAVE, e)) saveDocument();
 });
 ```
 
@@ -235,7 +235,7 @@ window.addEventListener("keydown", (e) => {
 Teams want to avoid writing `ControlLeft+S` which implies side specificity that isn't actually matched differently.
 
 ```ts
-import { parseCombination } from "parse-hotkeys";
+import { parseCombination } from "matches-hotkeys";
 
 function safe(spec: string) {
   const result = parseCombination(spec, { allowCodeAsModifier: false });
@@ -251,7 +251,7 @@ function safe(spec: string) {
 Users configure `ctrl+alt+k`. Store the canonical parsed object (or original string) for re-hydration.
 
 ```ts
-import { parseCombination } from "parse-hotkeys";
+import { parseCombination } from "matches-hotkeys";
 
 function toPersisted(spec: string) {
   const variants = parseCombination(spec);
@@ -266,7 +266,7 @@ Trigger same action for either top row or numpad digits – parser expansion mak
 
 ```ts
 const DIGIT_ZERO = parseCombination("0"); // two variants
-// Later: check if any variant matches event via your own comparator or parseHotkeys wrapper
+// Later: check if any variant matches event via your own comparator or matchesHotkeys wrapper
 ```
 
 ## Error Handling
@@ -286,7 +286,7 @@ We don't throw for authoring errors – we return empty arrays. This works well 
 Comparators are just `(a, b) => boolean` where `a` is parsed variant, `b` is a `KeyboardEvent`. Build them with helpers:
 
 ```ts
-import { eq, and, or, DEFAULT_COMPARATOR } from "parse-hotkeys";
+import { eq, and, or, DEFAULT_COMPARATOR } from "matches-hotkeys";
 
 // EXACT: require code match + modifiers (ignores key variants)
 const CODE_ONLY = and(
@@ -330,7 +330,7 @@ A: Preserves consistent object shape (all numeric fields present) while allowing
 A: Some legacy comparison code still inspects it. Including it avoids conditional logic at call sites and simplifies comparator composition.
 
 **Q: Can I distinguish left vs right modifiers when matching combos like `ctrl+a`?**  
-A: Not at parse/match level using standard `KeyboardEvent` booleans. You would need separate logic (e.g. listen and inspect `event.code` of the modifier itself). We intentionally avoid implying a distinction we cannot reliably check.
+A: Not at match level using standard `KeyboardEvent` booleans. You would need separate logic (e.g. listen and inspect `event.code` of the modifier itself). We intentionally avoid implying a distinction we cannot reliably check.
 
 **Q: Does this handle sequences (e.g. `g g` like in Vim)?**  
 A: No – out of scope. Layer this library inside your own state machine for sequences.

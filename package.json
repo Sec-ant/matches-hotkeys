@@ -1,6 +1,6 @@
 {
-  "name": "parse-hotkeys",
-  "description": "Hotkey parsing utilities for keyboard shortcuts",
+  "name": "matches-hotkeys",
+  "description": "Hotkey matching utilities for keyboard shortcuts",
   "private": false,
   "version": "0.1.0",
   "type": "module",
@@ -11,11 +11,11 @@
   "module": "./dist/es/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sec-ant/parse-hotkeys.git"
+    "url": "git+https://github.com/Sec-ant/matches-hotkeys.git"
   },
-  "homepage": "https://github.com/Sec-ant/parse-hotkeys",
+  "homepage": "https://github.com/Sec-ant/matches-hotkeys",
   "bugs": {
-    "url": "https://github.com/Sec-ant/parse-hotkeys/issues",
+    "url": "https://github.com/Sec-ant/matches-hotkeys/issues",
     "email": "zezhengwu@proton.me"
   },
   "keywords": [
