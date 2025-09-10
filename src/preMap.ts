@@ -7,7 +7,11 @@
  * @returns `true` if running on macOS, `false` otherwise
  */
 export function isMac() {
-  return navigator.userAgent.includes("Mac");
+  try {
+    return navigator.userAgent.includes("Mac");
+  } catch {
+    return false;
+  }
 }
 
 /**
