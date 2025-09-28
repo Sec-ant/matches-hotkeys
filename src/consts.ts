@@ -1,3 +1,5 @@
+import type { ExtractStrict } from "type-fest";
+
 /**
  * Single data source keyboard mapping - Compliant with W3C standards
  * References:
@@ -218,6 +220,7 @@ export const KEY_ALIASES = {
   "`": ["grave", "backtick"],
   "-": ["minus", "dash"],
   "=": ["equal", "equals"],
+  "+": ["plus"],
   "[": ["openbracket", "leftbracket"],
   "]": ["closebracket", "rightbracket"],
   ";": ["semicolon"],
@@ -367,13 +370,3 @@ export const MODIFIER_CODE_TOKENS = new Set<string>([
     return aliases.map((a) => a.toLowerCase());
   }),
 ]);
-
-type ExtractStrict<
-  T,
-  U extends [U] extends [
-    // Ensure every member of `U` extracts something from `T`
-    U extends unknown ? (Extract<T, U> extends never ? never : U) : never,
-  ]
-    ? unknown
-    : never,
-> = Extract<T, U>;
