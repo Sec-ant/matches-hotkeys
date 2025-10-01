@@ -105,6 +105,10 @@ Parses a hotkey combination string or array into normalized representations.
 
     When `true`, allows both `"ctrl+a"` and `"ControlLeft+a"` (both produce the same result with `ctrlKey: true`, since browsers cannot distinguish left/right modifiers at runtime). When `false`, only logical modifier names like `"ctrl"` are accepted in modifier positions, rejecting `"ControlLeft+a"` as invalid (but `"ControlLeft"` alone as a main key is still valid)
 
+  - `inferShift`: Automatically infer `shiftKey: true` for shift-derived keys (default: `false`).
+
+    When `true`, keys that can only be produced with Shift (e.g., `"+"` from Equal key, `"!"` from Digit1) automatically get `shiftKey: true` for physical keys that require Shift. When `false`, `shiftKey` is only set based on explicitly provided modifiers. See [Shift-Derived Keys](#shift-derived-keys) for details.
+
 **Returns:** `ParsedCombination[]` - Array of parsed variants (empty if invalid)
 
 **Examples:**
@@ -151,6 +155,19 @@ parseCombination("ControlLeft+a", { allowCodeAsModifier: false }); // Reject phy
 
 parseCombination("ctrl+a", { allowCodeAsModifier: false }); // Logical modifier OK
 // [{ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true, shiftKey: false, ... }]
+
+// Option: inferShift - Automatically infer shift for shift-derived keys
+parseCombination("ctrl+plus"); // Default: inferShift=false, no automatic inference
+// [
+//   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },
+//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: false, ... }
+// ]
+
+parseCombination("ctrl+plus", { inferShift: true }); // Automatic shift inference enabled
+// [
+//   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },  // Numpad doesn't need Shift
+//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: true, ... }        // Shift inferred for Equal
+// ]
 ```
 
 ### `resolveKey(token)`
@@ -451,23 +468,47 @@ The following keys have shifted character mappings:
 - `:` (from `Semicolon`), `"` (from `Quote`)
 - `<` (from `Comma`), `>` (from `Period`), `?` (from `Slash`)
 
-#### Explicit Shift Control
+#### Automatic Shift Inference (Optional)
 
-To match a shifted character, you need to explicitly include `shift` in your combination:
+By default (`inferShift: false`), the library does not automatically infer shift modifiers. You must explicitly include `shift` in your combination to match shifted characters.
+
+However, you can enable automatic shift inference using the `inferShift: true` option. When enabled, keys that can only be produced with Shift automatically get `shiftKey: true` for physical keys that require it:
 
 ```ts
-// To match the "+" character from the Equal key, you need explicit shift
-parseCombination("shift+=");
-// [{ code: "Equal", key: "=", shiftKey: true }]
+// Default behavior (inferShift: false)
+parseCombination("ctrl+plus");
+// [
+//   { code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false, ... },
+//   { code: "Equal", key: "+", ctrlKey: true, shiftKey: false, ... }
+// ]
 
-// Or use "shift+plus" which resolves to both variants with explicit shift
+// With inferShift: true
+parseCombination("ctrl+plus", { inferShift: true });
+// [
+//   { code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false, ... },  // Numpad doesn't need Shift
+//   { code: "Equal", key: "+", ctrlKey: true, shiftKey: true, ... }        // Shift automatically inferred
+// ]
+```
+
+**Why use automatic inference?**
+
+Without automatic shift inference, the `Equal` variant would have `shiftKey: false`, which may not match real keyboard events where the user must hold Shift to produce `"+"` from the Equal key. However, the library's default comparator uses OR logic (matching on `key` OR `code` OR `keyCode` OR `which`), so matching still works correctly in most cases even without inference.
+
+Automatic inference is useful when you want strict modifier matching or when using custom comparators that require exact modifier flag matches.
+
+#### Explicit Shift Control
+
+You can always explicitly include `shift` in your combination regardless of the `inferShift` setting:
+
+```ts
+// Explicit shift always sets shiftKey: true
 parseCombination("shift+plus");
 // [
 //   { code: "NumpadAdd", key: "+", shiftKey: true },  // Matches Shift+NumpadAdd
 //   { code: "Equal", key: "+", shiftKey: true }       // Matches Shift+Equal (produces "+")
 // ]
 
-// Without explicit shift, both variants have shiftKey: false
+// Without explicit shift and inferShift=false (default)
 parseCombination("plus");
 // [
 //   { code: "NumpadAdd", key: "+", shiftKey: false },

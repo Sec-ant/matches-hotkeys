@@ -1,5 +1,9 @@
 import type { Writable } from "type-fest";
-import { MODIFIER_CODE_TOKENS, MODIFIER_KEY_MAP } from "./consts";
+import {
+  MODIFIER_CODE_TOKENS,
+  MODIFIER_KEY_MAP,
+  SHIFT_KEY_MAPPINGS,
+} from "./consts";
 import { preMap } from "./preMap";
 import { resolveKey } from "./resolveKey";
 
@@ -59,6 +63,22 @@ export interface ParseCombinationOptions {
    * @default true
    */
   allowCodeAsModifier?: boolean;
+  /**
+   * Whether to automatically infer `shiftKey: true` for shift-derived keys.
+   *
+   * When enabled, keys that can only be produced with Shift (e.g., "+" from Equal key,
+   * "!" from Digit1) will automatically get `shiftKey: true` for physical keys that
+   * require Shift to produce those characters.
+   *
+   * When disabled, `shiftKey` is only set based on explicitly provided modifiers.
+   *
+   * Examples:
+   * - With `inferShift: true`: `parseCombination("plus")` sets `shiftKey: true` for Equal key
+   * - With `inferShift: false`: `parseCombination("plus")` sets `shiftKey: false` for both keys
+   *
+   * @default false
+   */
+  inferShift?: boolean;
 }
 
 /**
@@ -82,6 +102,7 @@ export function parseCombination(
     splitBy = "+",
     trim,
     allowCodeAsModifier = true,
+    inferShift = false,
   }: ParseCombinationOptions = {},
 ): ParsedCombination[] {
   const isCombinationArray = Array.isArray(combination);
@@ -158,10 +179,23 @@ export function parseCombination(
 
   // Generate results for all resolved key variants
   return resolvedKeys.map((resolved) => {
+    // Check if this resolved key is a shift-derived symbol when inferShift is enabled
+    // (e.g., Equal + Shift → "+", Digit1 + Shift → "!")
+    const isShiftDerived =
+      inferShift &&
+      Object.entries(SHIFT_KEY_MAPPINGS).some(
+        ([baseCode, shiftedKey]) =>
+          resolved.code === baseCode && resolved.key === shiftedKey,
+      );
+
+    // For shift-derived keys when inferShift is true, automatically set shiftKey: true
+    // Otherwise, only use explicitly provided shift modifier
+    const finalShiftKey = isShiftDerived || seenModifiers.has("shiftKey");
+
     return {
       metaKey: seenModifiers.has("metaKey"),
       ctrlKey: seenModifiers.has("ctrlKey"),
-      shiftKey: seenModifiers.has("shiftKey"),
+      shiftKey: finalShiftKey,
       altKey: seenModifiers.has("altKey"),
       key: resolved.key,
       code: resolved.code,
@@ -855,10 +889,10 @@ if (import.meta.vitest) {
     defineUA(originalUA);
   });
 
-  it("parseCombination - shift-derived keys", () => {
-    // Test that shift-derived keys work correctly without automatic inference
+  it("parseCombination - shift-derived keys (default: inferShift=false)", () => {
+    // Test that shift-derived keys work correctly without automatic inference by default
 
-    // "plus" ("+") can come from NumpadAdd (no shift) or Equal (with shift explicit in event)
+    // "plus" ("+") can come from NumpadAdd (no shift) or Equal (no automatic inference)
     expect(parseCombination("plus")).toMatchInlineSnapshot(`
       [
         {
@@ -983,6 +1017,141 @@ if (import.meta.vitest) {
     `);
 
     expect(parseCombination("ctrl+shift+!")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Digit1",
+          "ctrlKey": true,
+          "key": "!",
+          "keyCode": 49,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 49,
+        },
+      ]
+    `);
+  });
+
+  it("parseCombination - shift-derived keys with inferShift=true", () => {
+    // Test that shift-derived keys automatically get shiftKey: true when inferShift is enabled
+
+    // "plus" ("+") with inferShift: true should infer shift for Equal key
+    expect(
+      parseCombination("plus", { inferShift: true }),
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "NumpadAdd",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 107,
+          "metaKey": false,
+          "shiftKey": false,
+          "which": 107,
+        },
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 187,
+        },
+      ]
+    `);
+
+    expect(
+      parseCombination("ctrl+plus", { inferShift: true }),
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "NumpadAdd",
+          "ctrlKey": true,
+          "key": "+",
+          "keyCode": 107,
+          "metaKey": false,
+          "shiftKey": false,
+          "which": 107,
+        },
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": true,
+          "key": "+",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 187,
+        },
+      ]
+    `);
+
+    // Explicit shift + plus: both variants get shiftKey: true
+    expect(
+      parseCombination("shift+plus", { inferShift: true }),
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "NumpadAdd",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 107,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 107,
+        },
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 187,
+        },
+      ]
+    `);
+
+    // Test other shift-derived keys
+    expect(parseCombination("!", { inferShift: true })).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Digit1",
+          "ctrlKey": false,
+          "key": "!",
+          "keyCode": 49,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 49,
+        },
+      ]
+    `);
+
+    expect(parseCombination("@", { inferShift: true })).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Digit2",
+          "ctrlKey": false,
+          "key": "@",
+          "keyCode": 50,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 50,
+        },
+      ]
+    `);
+
+    expect(
+      parseCombination("ctrl+shift+!", { inferShift: true }),
+    ).toMatchInlineSnapshot(`
       [
         {
           "altKey": false,
