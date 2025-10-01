@@ -1,5 +1,9 @@
 import type { Writable } from "type-fest";
-import { MODIFIER_CODE_TOKENS, MODIFIER_KEY_MAP } from "./consts";
+import {
+  MODIFIER_CODE_TOKENS,
+  MODIFIER_KEY_MAP,
+  SHIFT_KEY_MAPPINGS,
+} from "./consts";
 import { preMap } from "./preMap";
 import { resolveKey } from "./resolveKey";
 
@@ -157,16 +161,30 @@ export function parseCombination(
   }
 
   // Generate results for all resolved key variants
-  return resolvedKeys.map((resolved) => ({
-    metaKey: seenModifiers.has("metaKey"),
-    ctrlKey: seenModifiers.has("ctrlKey"),
-    shiftKey: seenModifiers.has("shiftKey"),
-    altKey: seenModifiers.has("altKey"),
-    key: resolved.key,
-    code: resolved.code,
-    keyCode: resolved.keyCode,
-    which: resolved.which,
-  }));
+  return resolvedKeys.map((resolved) => {
+    // Check if this resolved key is a shift-derived symbol
+    // (e.g., Equal + Shift → "+", Digit1 + Shift → "!")
+    const isShiftDerived = Object.entries(SHIFT_KEY_MAPPINGS).some(
+      ([baseCode, shiftedKey]) =>
+        resolved.code === baseCode && resolved.key === shiftedKey,
+    );
+
+    // For shift-derived keys, automatically set shiftKey: true
+    // This ensures the combination can actually match real keyboard events
+    // (e.g., "plus" will match Shift+Equal, which produces "+")
+    const inferredShiftKey = isShiftDerived || seenModifiers.has("shiftKey");
+
+    return {
+      metaKey: seenModifiers.has("metaKey"),
+      ctrlKey: seenModifiers.has("ctrlKey"),
+      shiftKey: inferredShiftKey,
+      altKey: seenModifiers.has("altKey"),
+      key: resolved.key,
+      code: resolved.code,
+      keyCode: resolved.keyCode,
+      which: resolved.which,
+    };
+  });
 }
 
 if (import.meta.vitest) {
@@ -851,5 +869,149 @@ if (import.meta.vitest) {
     `);
 
     defineUA(originalUA);
+  });
+
+  it("parseCombination - shift-derived keys automatic inference", () => {
+    // Test that shift-derived keys automatically get shiftKey: true
+    // This ensures they can actually match real keyboard events
+
+    // "plus" ("+") can come from NumpadAdd (no shift) or Equal (needs shift)
+    expect(parseCombination("plus")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "NumpadAdd",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 107,
+          "metaKey": false,
+          "shiftKey": false,
+          "which": 107,
+        },
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 187,
+        },
+      ]
+    `);
+
+    expect(parseCombination("ctrl+plus")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "NumpadAdd",
+          "ctrlKey": true,
+          "key": "+",
+          "keyCode": 107,
+          "metaKey": false,
+          "shiftKey": false,
+          "which": 107,
+        },
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": true,
+          "key": "+",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 187,
+        },
+      ]
+    `);
+
+    // Explicit shift + plus: both variants get shiftKey: true
+    expect(parseCombination("shift+plus")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "NumpadAdd",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 107,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 107,
+        },
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": false,
+          "key": "+",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 187,
+        },
+      ]
+    `);
+
+    // Using "=" (base key) should NOT get automatic shift
+    expect(parseCombination("ctrl+=")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Equal",
+          "ctrlKey": true,
+          "key": "=",
+          "keyCode": 187,
+          "metaKey": false,
+          "shiftKey": false,
+          "which": 187,
+        },
+      ]
+    `);
+
+    // Test other shift-derived keys
+    expect(parseCombination("!")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Digit1",
+          "ctrlKey": false,
+          "key": "!",
+          "keyCode": 49,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 49,
+        },
+      ]
+    `);
+
+    expect(parseCombination("@")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Digit2",
+          "ctrlKey": false,
+          "key": "@",
+          "keyCode": 50,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 50,
+        },
+      ]
+    `);
+
+    expect(parseCombination("ctrl+shift+!")).toMatchInlineSnapshot(`
+      [
+        {
+          "altKey": false,
+          "code": "Digit1",
+          "ctrlKey": true,
+          "key": "!",
+          "keyCode": 49,
+          "metaKey": false,
+          "shiftKey": true,
+          "which": 49,
+        },
+      ]
+    `);
   });
 }

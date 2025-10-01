@@ -1,349 +1,570 @@
 # matches-hotkeys
 
-A clean and efficient hotkey matching library that makes keyboard shortcuts simple to work with. Built for accuracy (W3C standards), clarity (straightforward results), and developer-friendly features (aliases, cross-platform `mod` key, flexible matching rules).
+Parse keyboard shortcut specifications and match them against `KeyboardEvent` objects.
 
-This library focuses on doing one thing well: matching user-defined shortcut specifications against `KeyboardEvent` objects. It doesn't try to handle event listeners, global registries, or conflict resolution – you can combine those features yourself.
+## Overview
 
-## Why choose this hotkey library?
+This library provides functions to:
 
-Most lightweight hotkey helpers stick to one comparison approach (usually just `event.key` or `event.which` + modifiers) and quietly ignore ambiguous cases (numpad vs top-row digits, shifted symbols, left/right modifier keys). This library takes a different approach:
+- Parse hotkey combinations (e.g., `"ctrl+a"`, `"mod+shift+p"`) into normalized representations
+- Match `KeyboardEvent` objects against parsed hotkey specifications
+- Handle platform differences (`mod` resolves to `cmd` on macOS, `ctrl` elsewhere)
+- Resolve ambiguous keys (e.g., `"0"` matches both top-row and numpad)
 
-1. **Smart ambiguity handling** – When input could mean multiple things (like `"ctrl"` for left or right control), it gives you all possibilities instead of guessing.
-2. **Flexible matching** – You choose how equality works through composable comparators rather than being stuck with one built-in method.
-3. **Clear error handling** – Writing mistakes (duplicate modifiers, incomplete `ctrl+`) fail fast with empty results instead of unpredictable matching.
-4. **Consistent data shape** – Returns a subset of `KeyboardEvent` that you can store, compare, serialize, or test easily.
-5. **Cross-platform shortcuts** – Write `mod+s` once and automatically get `cmd+s` on Mac and `ctrl+s` everywhere else, without runtime platform checks.
-6. **No framework lock-in** – Pure parsing functions that work with any framework or vanilla JavaScript.
+**What this library does not do:**
+
+- Register global keyboard listeners
+- Manage shortcut conflicts or priorities
+- Provide UI components or visual feedback
+
+These concerns are left to the application layer.
 
 ## Installation
 
 ```bash
-pnpm add matches-hotkeys
-# or
 npm install matches-hotkeys
-# or
-yarn add matches-hotkeys
 ```
 
-Ships with ES Module, CommonJS, and IIFE builds plus TypeScript declarations.
+TypeScript types are included. ES Module, CommonJS, and IIFE builds are provided.
 
-## Architecture Overview
-
-The library provides three core functions that work together in a layered architecture:
-
-### Core Functions
-
-1. **`resolveKey(token)`** - Low-level key resolution
-   - Takes a single key token (like `"a"`, `"ctrl"`, `"F1"`)
-   - Returns standardized key information with physical codes and key values
-   - Handles aliases, ambiguity, and unknown keys
-
-2. **`parseCombination(combination, options?)`** - Hotkey combination parsing
-   - Takes a combination string/array (like `"ctrl+a"` or `["ctrl", "a"]`)
-   - Processes modifiers directly, uses `resolveKey` only for the main key
-   - Returns all possible variants for ambiguous inputs
-
-3. **`matchesHotkeys(hotkeys, event, options?)`** - Event matching
-   - Takes an array of hotkey specs and a `KeyboardEvent`
-   - Uses `parseCombination` internally to expand each spec
-   - Returns `true` if any variant matches the event
-
-### Data Flow
-
-```mermaid
-graph TD
-    %% Input Layer
-    A[Hotkey Specs Array] --> B[matchesHotkeys]
-    A1[KeyboardEvent] --> B
-
-    %% Top Layer: matchesHotkeys
-    B --> C[For each hotkey spec...]
-    C --> D[parseCombination]
-
-    %% Middle Layer: parseCombination
-    D --> E[Split ctrl+a into tokens]
-    E --> F[Process ctrl as modifier]
-    E --> G[Process a as main key]
-
-    %% Modifier processing
-    F --> H[Set ctrlKey: true]
-
-    %% Main key processing
-    G --> I[resolveKey: a]
-    I --> J[KeyA variant]
-
-    %% Assembly
-    H --> K[Combine modifier flags + main key]
-    J --> K
-    K --> L[ParsedCombination:<br/>ctrlKey: true, code: KeyA, key: a]
-
-    %% Return to matchesHotkeys
-    L --> M[matchesHotkeys compares<br/>with KeyboardEvent]
-    M --> N{Event matches?}
-    N -->|Yes| O[Return true]
-    N -->|No| P[Return false]
-
-    %% Styling
-    style A fill:#e1f5fe
-    style A1 fill:#e1f5fe
-    style B fill:#fff3e0
-    style D fill:#f3e5f5
-    style I fill:#e8f5e8
-    style L fill:#f3e5f5
-    style O fill:#e8f5e8
-    style P fill:#ffebee
-```
-
-### Function Relationship
-
-Each function builds on the previous one:
-
-- `resolveKey` handles the complexity of key identification and aliasing
-- `parseCombination` orchestrates modifier logic and `resolveKey` calls
-- `matchesHotkeys` uses `parseCombination` results to match real keyboard events
-
-This layered approach means you can use any level directly:
-
-- Use `resolveKey` for custom key processing
-- Use `parseCombination` for parsing without event matching
-- Use `matchesHotkeys` for complete hotkey matching functionality
-
----
-
-## Basic Concepts
-
-### Writing Combinations
-
-Pass either a string (`"ctrl+shift+p"`) or an array (`["ctrl", "shift", "p"]`).
-
-Simple rules (showing string form – arrays work the same way):
-
-- Tokens split by `+` by default (configurable with `splitBy`)
-- Everything except the last token must be a modifier (unless it's a single modifier like `"shift"`)
-- A single modifier as the final token expands to left + right variants (e.g. `"ctrl"` becomes `ControlLeft` and `ControlRight`)
-- Duplicate modifiers (`"ctrl+control+a"`) are rejected
-- Incomplete input (`"ctrl+"`, `"+a"`, `"a+ctrl"`, `"a+b"`) returns empty array – treat these as authoring errors
-- Unknown final tokens create a fallback object with `-1` numeric fields (never silently ignored)
-
-### Modifiers and Physical Codes
-
-Leading modifier segments accept logical names (`ctrl`, `meta`, `shift`, `alt`) and their common aliases (`cmd`, `command`, `win`, `option`, etc.). By default they also accept physical code names (`ControlLeft`) and code aliases (`lctrl`). You can disable this with `allowCodeAsModifier: false` to prevent implying left/right specificity that can't actually be detected in real events (since `KeyboardEvent` only exposes boolean flags).
-
-### Ambiguity Expansion
-
-When there's ambiguity, the parser returns multiple variants instead of guessing:
-
-- `"ctrl"` → two results (left/right control, both with `ctrlKey: true`)
-- `"shift"` → two results (left/right shift)
-- `"0"` → top row `Digit0` and `Numpad0`
-- `"+"` → `NumpadAdd` and shifted `Equal`
-
-Your code typically feeds each variant into a matcher (`matchesHotkeys`) which returns on the first match.
-
-### Result Shape
-
-Each parsed variant is a plain object (subset of `KeyboardEvent`):
-
-```ts
-interface ParsedCombination {
-  code: string; // e.g. "KeyA", "ShiftLeft" (fallback: original token)
-  key: string; // logical key value (space is " ")
-  keyCode: number; // legacy numeric code or -1 for unknown
-  which: number; // mirrors keyCode; included for ecosystem compatibility
-  metaKey: boolean;
-  ctrlKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
-}
-```
-
-We keep both `keyCode` and `which` because some existing code still checks them. `-1` values let you detect "unknown" while keeping consistent object shape and JSON serializability.
-
-## API Overview
-
-| Function                                     | Purpose                                                                                 |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `parseCombination(combination, options?)`    | Parse user input into 0..n standardized variants                                        |
-| `matchesHotkeys(hotkeys, event, options?)`   | Test if a `KeyboardEvent` matches any of the provided shortcut specs                    |
-| `resolveKey(token)`                          | Low-level: resolve a single key token (used internally)                                 |
-| `eq(...fields)`                              | Build a comparator that checks equality for specific fields                             |
-| `and(...comparators)` / `or(...comparators)` | Combine comparators logically                                                           |
-| `DEFAULT_COMPARATOR`                         | Built-in comparator: matches if (key OR code OR which OR keyCode) + identical modifiers |
-
-Full type signatures are in the source – we avoid duplicating them here to reduce maintenance: see `src/*.ts` or generated declarations in `dist`.
-
-## Matching Logic
-
-`KeyboardEvent` exposes several ways to identify the "main key": `key`, `code`, `which`, `keyCode`. Browsers and keyboard layouts differ; sometimes `key` is localized while `code` is physical. The default strategy considers a hotkey a match if ANY of those identity channels align AND all four modifier booleans exactly match. This reduces false negatives when users with different layouts produce different `key` values but identical `code`.
-
-Need stricter or looser rules? Provide a custom comparator. Example: ignore `shiftKey` when matching symbol shortcuts where the symbol itself implies shift.
-
-```ts
-import { matchesHotkeys, eq, and, or, type Comparator } from "matches-hotkeys";
-
-// Comparator that ignores shift but still requires other modifiers and main key identity
-const IGNORE_SHIFT: Comparator = or(
-  and(eq("key", "altKey", "ctrlKey", "metaKey")),
-  and(eq("code", "altKey", "ctrlKey", "metaKey")),
-  and(eq("which", "altKey", "ctrlKey", "metaKey")),
-  and(eq("keyCode", "altKey", "ctrlKey", "metaKey")),
-);
-
-document.addEventListener("keydown", (e) => {
-  if (matchesHotkeys([{ combination: "a" }], e, { comparator: IGNORE_SHIFT })) {
-    // Treat "a" and "Shift+a" the same
-  }
-});
-```
-
-## Usage Patterns
-
-### 1. Simple Command Palette Trigger
-
-Common UX pattern: `cmd+shift+p` (macOS) / `ctrl+shift+p` (Windows/Linux). Write once with `mod`.
+## Quick Start
 
 ```ts
 import { matchesHotkeys } from "matches-hotkeys";
 
-const OPEN_PALETTE = [{ combination: "mod+shift+p" }];
+// Define shortcuts
+const SAVE_SHORTCUT = [{ combination: "mod+s" }]; // cmd+s on macOS, ctrl+s elsewhere
 
-window.addEventListener("keydown", (e) => {
-  if (matchesHotkeys(OPEN_PALETTE, e)) {
-    e.preventDefault();
+// Check if event matches
+window.addEventListener("keydown", (event) => {
+  if (matchesHotkeys(SAVE_SHORTCUT, event)) {
+    event.preventDefault();
+    saveDocument();
+  }
+});
+```
+
+## Usage
+
+### ES Module / CommonJS
+
+```ts
+import { matchesHotkeys, parseCombination } from "matches-hotkeys";
+```
+
+### IIFE
+
+For direct browser usage via `<script>` tag, IIFE builds are available. The global variable is `MatchesHotkeys`.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/matches-hotkeys@<version>/dist/iife/index.js"></script>
+<script>
+  const { matchesHotkeys } = MatchesHotkeys;
+  // Use matchesHotkeys...
+</script>
+```
+
+## API
+
+### `matchesHotkeys(hotkeys, event, options?)`
+
+Tests if a `KeyboardEvent` matches any of the provided hotkey specifications.
+
+**Parameters:**
+
+- `hotkeys`: Array of `{ combination, options? }` objects
+- `event`: A `KeyboardEvent` instance
+- `options`: Optional `{ comparator? }` configuration
+
+**Returns:** `boolean` - `true` if any hotkey matches the event
+
+**Example:**
+
+```ts
+const hotkeys = [{ combination: "ctrl+s" }, { combination: "cmd+s" }];
+matchesHotkeys(hotkeys, event); // true if event is Ctrl+S or Cmd+S
+```
+
+### `parseCombination(combination, options?)`
+
+Parses a hotkey combination string or array into normalized representations.
+
+**Parameters:**
+
+- `combination`: String (`"ctrl+a"`) or array (`["ctrl", "a"]`)
+- `options`: Optional configuration
+  - `splitBy`: Separator character (default: `"+"`).
+
+    Change this when you need to use `"+"` as the actual key in your shortcut (e.g., `"ctrl-+"` with `splitBy: "-"`)
+
+  - `trim`: Whether to trim whitespace from each token after splitting (default: `true` when `combination` is a string, `false` when it's an array).
+
+    When `true`, whitespace around tokens is removed, making empty spaces in string combinations become empty tokens (which are invalid). Set to `false` for string combinations to preserve the space character as a valid key (e.g., `"ctrl+ "` with `trim: false` matches the space key)
+
+  - `allowCodeAsModifier`: Allow physical key codes like `"ControlLeft"` or `"ShiftRight"` as modifiers (default: `true`).
+
+    When `true`, allows both `"ctrl+a"` and `"ControlLeft+a"` (both produce the same result with `ctrlKey: true`, since browsers cannot distinguish left/right modifiers at runtime). When `false`, only logical modifier names like `"ctrl"` are accepted in modifier positions, rejecting `"ControlLeft+a"` as invalid (but `"ControlLeft"` alone as a main key is still valid)
+
+**Returns:** `ParsedCombination[]` - Array of parsed variants (empty if invalid)
+
+**Examples:**
+
+```ts
+// Basic usage
+parseCombination("ctrl+a");
+// [{ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }]
+
+// Ambiguous keys return multiple variants
+parseCombination("0");
+// [
+//   { code: "Digit0", key: "0", keyCode: 48, which: 48, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false },
+//   { code: "Numpad0", key: "0", keyCode: 96, which: 96, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }
+// ]
+
+// Key aliases work for shifted keys (e.g., "plus" → "+")
+// Shift is automatically inferred for keys that require it
+parseCombination("ctrl+plus"); // "plus" is an alias for "+"
+// [
+//   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },    // Numpad: doesn't need Shift
+//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: true, ... }          // Top-row: Shift automatically inferred
+// ]
+
+// Option: splitBy - Use different separator for literal "+" key
+parseCombination("ctrl-+", { splitBy: "-" }); // Direct "+" character as key
+// [
+//   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },
+//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: true, ... }       // Shift automatically inferred
+// ]
+
+// Option: trim - Preserve whitespace to match space key
+parseCombination("ctrl+ "); // Default trim removes space, " " becomes ""
+// [] (empty - invalid because last token is empty)
+
+parseCombination("ctrl+ ", { trim: false }); // Space key preserved
+// [{ code: "Space", key: " ", keyCode: 32, which: 32, ctrlKey: true, shiftKey: false, ... }]
+
+// Option: allowCodeAsModifier - Enforce logical modifiers only
+parseCombination("ControlLeft+a"); // Physical code as modifier (allowed by default)
+// [{ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true, shiftKey: false, ... }]
+
+parseCombination("ControlLeft+a", { allowCodeAsModifier: false }); // Reject physical codes
+// [] (empty - invalid because "ControlLeft" is not a logical modifier)
+
+parseCombination("ctrl+a", { allowCodeAsModifier: false }); // Logical modifier OK
+// [{ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true, shiftKey: false, ... }]
+```
+
+### `resolveKey(token)`
+
+Resolves a single key token into standardized key information. Used internally by `parseCombination`.
+
+**Parameters:**
+
+- `token`: A single key string (case-insensitive)
+
+**Returns:** `ResolvedKey[]` - Array of possible key resolutions
+
+**Resolution behavior:**
+
+- **Single-source keys** (e.g., `"a"`, `"Escape"`) return one result
+- **Ambiguous keys** (e.g., `"0"`, `"+"`) return multiple results for different physical keys
+- **Generic modifiers** (e.g., `"ctrl"`, `"shift"`) return both left and right variants
+- **Specific modifiers** (e.g., `"ControlLeft"`) return only that variant
+- **Unknown keys** return a fallback object with `keyCode: -1` and `which: -1`
+
+**Examples:**
+
+```ts
+resolveKey("a"); // [{ key: "a", code: "KeyA", keyCode: 65, which: 65 }]
+
+resolveKey("0"); // Ambiguous - returns both top-row and numpad
+// [
+//   { key: "0", code: "Digit0", keyCode: 48, which: 48 },
+//   { key: "0", code: "Numpad0", keyCode: 96, which: 96 }
+// ]
+
+resolveKey("ctrl"); // Generic modifier - returns both variants
+// [
+//   { key: "Control", code: "ControlLeft", keyCode: 17, which: 17 },
+//   { key: "Control", code: "ControlRight", keyCode: 17, which: 17 }
+// ]
+
+resolveKey("ControlLeft"); // Specific modifier - returns only left variant
+// [{ key: "Control", code: "ControlLeft", keyCode: 17, which: 17 }]
+
+resolveKey("unknown"); // Unknown key - returns fallback
+// [{ key: "unknown", code: "unknown", keyCode: -1, which: -1 }]
+```
+
+## Usage Examples
+
+### Simple Shortcuts
+
+```ts
+import { matchesHotkeys } from "matches-hotkeys";
+
+window.addEventListener("keydown", (event) => {
+  // Save
+  if (matchesHotkeys([{ combination: "mod+s" }], event)) {
+    event.preventDefault();
+    save();
+  }
+
+  // Copy
+  if (matchesHotkeys([{ combination: "mod+c" }], event)) {
+    copy();
+  }
+
+  // Open command palette
+  if (matchesHotkeys([{ combination: "mod+shift+p" }], event)) {
+    event.preventDefault();
     openCommandPalette();
   }
 });
 ```
 
-### 2. Multiple Alternatives for Accessibility
-
-Provide both a mnemonic and platform-conventional shortcut.
+### Registering Multiple Shortcuts
 
 ```ts
-const SAVE = [
-  { combination: "mod+s" }, // Standard save
-  { combination: ["ctrl", "enter"] }, // Alternative for screen reader contexts
+const shortcuts = [
+  { combination: "mod+s", action: save },
+  { combination: "mod+shift+s", action: saveAs },
+  { combination: "mod+o", action: open },
+  { combination: "mod+w", action: close },
 ];
 
-window.addEventListener("keydown", (e) => {
-  if (matchesHotkeys(SAVE, e)) saveDocument();
+window.addEventListener("keydown", (event) => {
+  for (const { combination, action } of shortcuts) {
+    if (matchesHotkeys([{ combination }], event)) {
+      event.preventDefault();
+      action();
+      break;
+    }
+  }
 });
 ```
 
-### 3. Prevent Left/Right Modifier Confusion
-
-Teams want to avoid writing `ControlLeft+S` which implies side specificity that isn't actually matched differently.
+### Arrow Key Navigation
 
 ```ts
-import { parseCombination } from "matches-hotkeys";
+const NAVIGATION = [
+  { combination: "arrowup" },
+  { combination: "arrowdown" },
+  { combination: "arrowleft" },
+  { combination: "arrowright" },
+];
 
-function safe(spec: string) {
-  const result = parseCombination(spec, { allowCodeAsModifier: false });
-  if (result.length === 0) throw new Error(`Invalid spec: ${spec}`);
-  return result;
-}
-
-// safe("ControlLeft+s") → [] (invalid), forces authors to use logical modifiers
+window.addEventListener("keydown", (event) => {
+  if (matchesHotkeys(NAVIGATION, event)) {
+    event.preventDefault();
+    navigate(event.key);
+  }
+});
 ```
 
-### 4. Storing User Custom Shortcuts
+## Advanced Usage
 
-Users configure `ctrl+alt+k`. Store the canonical parsed object (or original string) for re-hydration.
+### Custom Comparators
+
+By default, a hotkey matches if any of `key`, `code`, `keyCode`, or `which` match AND all modifier flags are identical. You can customize this by composing your own comparators or using the exported ones.
+
+#### Comparator Primitives
 
 ```ts
-import { parseCombination } from "matches-hotkeys";
+import { eq, and, or } from "matches-hotkeys";
 
-function toPersisted(spec: string) {
-  const variants = parseCombination(spec);
-  // Keep original spec + variant list for display/matching strategies
-  return { spec, variants };
-}
+// eq(...fields) - Creates a comparator that checks equality for specific fields
+const checkKey = eq("key");
+const checkModifiers = eq("altKey", "ctrlKey", "metaKey", "shiftKey");
+
+// and(...comparators) - All comparators must match
+const strictMatch = and(checkKey, checkModifiers);
+
+// or(...comparators) - Any comparator can match
+const flexibleMatch = or(eq("key"), eq("code"));
 ```
 
-### 5. Handling Ambiguous Numeric Row vs Numpad
+#### Pre-built Comparators
 
-Trigger same action for either top row or numpad digits – parser expansion makes this easy.
+The library exports several pre-built comparators you can use directly or combine:
 
 ```ts
-const DIGIT_ZERO = parseCombination("0"); // two variants
-// Later: check if any variant matches event via your own comparator or matchesHotkeys wrapper
+import {
+  DEFAULT_COMPARATOR, // Matches by (key OR code OR keyCode OR which) + all modifiers
+  MODIFIERS_COMPARATOR, // Only checks modifier flags match
+  COMPARE_BY_KEY, // Matches by key + all modifiers
+  COMPARE_BY_CODE, // Matches by code + all modifiers
+  COMPARE_BY_KEY_CODE, // Matches by keyCode + all modifiers
+  COMPARE_BY_WHICH, // Matches by which + all modifiers
+} from "matches-hotkeys";
 ```
 
-## Error Handling
+#### Example: Ignore Shift modifier
 
-We don't throw for authoring errors – we return empty arrays. This works well with functional composition (map/filter pipelines) and simplifies validation: `if (parsed.length === 0) showAuthoringError()`. Throwing would require try/catch at call sites and complicate bulk parsing flows.
-
-## Configuration Options
-
-| Option                | Default                           | Purpose                                                                             | When to Change                                                                         |
-| --------------------- | --------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `splitBy`             | `"+"`                             | Token separator in string form                                                      | When you need literal plus: set `splitBy` to something else (e.g. `"-"`)               |
-| `trim`                | `true` (string) / `false` (array) | Whitespace trimming per token                                                       | Set `false` for string form if you need space key as last token without manual quoting |
-| `allowCodeAsModifier` | `true`                            | Accept physical code tokens (`ShiftLeft`) / aliases (`lctrl`) in modifier positions | Set `false` to discourage misleading left/right specificity                            |
-
-## Comparator Composition
-
-Comparators are just `(a, b) => boolean` where `a` is parsed variant, `b` is a `KeyboardEvent`. Build them with helpers:
+Compose a custom comparator from primitives:
 
 ```ts
-import { eq, and, or, DEFAULT_COMPARATOR } from "matches-hotkeys";
+import { matchesHotkeys, eq, and, or } from "matches-hotkeys";
 
-// EXACT: require code match + modifiers (ignores key variants)
-const CODE_ONLY = and(
-  eq("code"),
-  eq("altKey", "ctrlKey", "metaKey", "shiftKey"),
+const IGNORE_SHIFT = or(
+  and(eq("key", "altKey", "ctrlKey", "metaKey")),
+  and(eq("code", "altKey", "ctrlKey", "metaKey")),
 );
 
-// Accept either code or key path (mirrors DEFAULT_COMPARATOR minus which/keyCode legacy fields)
-const HYBRID = or(
-  and(eq("code"), eq("altKey", "ctrlKey", "metaKey", "shiftKey")),
-  and(eq("key"), eq("altKey", "ctrlKey", "metaKey", "shiftKey")),
-);
+// Matches both "a" and "Shift+a"
+if (
+  matchesHotkeys([{ combination: "a" }], event, { comparator: IGNORE_SHIFT })
+) {
+  handleKey();
+}
 ```
 
-`DEFAULT_COMPARATOR` is defined in `src/comparators.ts` – reference there for exact logic instead of copying into docs.
+#### Example: Use pre-built comparators
 
-## Performance Notes
+```ts
+import { matchesHotkeys, COMPARE_BY_CODE } from "matches-hotkeys";
 
-- Core lookup tables (`LOWERCASE_CODE_MAP`, `CODE_ALIAS_MAP`, `MODIFIER_KEY_MAP`) are built once at module load – hot path parsing is mostly array and map operations
-- Typical simple combination (`"ctrl+a"`) parses to a single object with O(number_of_tokens) steps
-- Ambiguous tokens (modifiers, digits, symbols) allocate small additional arrays; caller code usually short-circuits on first match
-- No DOM access besides `navigator.userAgent` for `mod` mapping (cached via direct call each parse; if you need to avoid UA sniffing you can pre-normalize `mod` yourself before calling API)
-
-## Testing & Reliability
-
-The repository includes comprehensive inline snapshot tests for: parsing grammar, ambiguity expansion, alias handling, option toggles, platform variance, and key resolution. See `src/parseCombination.ts` & `src/resolveKey.ts` for real output shapes (kept as inline snapshots to detect regressions when updating key data sources).
-
-To run tests locally:
-
-```bash
-pnpm install
-pnpm test
+// Only match by physical key position, ignore key value
+if (
+  matchesHotkeys([{ combination: "a" }], event, { comparator: COMPARE_BY_CODE })
+) {
+  handleAction();
+}
 ```
 
-## FAQ
+#### Example: Combine pre-built comparators
 
-**Q: Why return `-1` instead of `undefined` for unknown numeric fields?**  
-A: Preserves consistent object shape (all numeric fields present) while allowing explicit detection by checking `keyCode === -1`.
+```ts
+import {
+  matchesHotkeys,
+  or,
+  COMPARE_BY_KEY,
+  COMPARE_BY_CODE,
+} from "matches-hotkeys";
 
-**Q: Why keep `which` when it's deprecated?**  
-A: Some legacy comparison code still inspects it. Including it avoids conditional logic at call sites and simplifies comparator composition.
+// Match by either key or code (but not keyCode/which)
+const KEY_OR_CODE = or(COMPARE_BY_KEY, COMPARE_BY_CODE);
 
-**Q: Can I distinguish left vs right modifiers when matching combos like `ctrl+a`?**  
-A: Not at match level using standard `KeyboardEvent` booleans. You would need separate logic (e.g. listen and inspect `event.code` of the modifier itself). We intentionally avoid implying a distinction we cannot reliably check.
+if (
+  matchesHotkeys([{ combination: "a" }], event, { comparator: KEY_OR_CODE })
+) {
+  handleAction();
+}
+```
 
-**Q: Does this handle sequences (e.g. `g g` like in Vim)?**  
-A: No – out of scope. Layer this library inside your own state machine for sequences.
+#### Example: Fully custom comparator
 
-## Contributing
+You can also write completely custom logic:
 
-Contributions welcome. Please keep scope focused (parsing, resolution, comparator ergonomics). Open an issue before adding large new categories of keys or behavior that might expand maintenance surface.
+```ts
+import type { Comparator } from "matches-hotkeys";
 
-## Related Reading
+// Custom: Ignore Shift modifier but check the key and other modifiers
+const IGNORE_SHIFT: Comparator = (parsed, event) => {
+  return (
+    parsed.key === event.key &&
+    parsed.ctrlKey === event.ctrlKey &&
+    parsed.metaKey === event.metaKey &&
+    parsed.altKey === event.altKey
+    // Note: shiftKey is intentionally not checked
+  );
+};
 
-- W3C UI Events KeyboardEvent code values: <https://www.w3.org/TR/uievents-code/>
-- W3C UI Events key values: <https://www.w3.org/TR/uievents-key/>
+// Now "a" matches both plain "a" and "Shift+a"
+if (
+  matchesHotkeys([{ combination: "a" }], event, { comparator: IGNORE_SHIFT })
+) {
+  handleKey();
+}
+```
+
+## Key Concepts
+
+### Keyboard data model
+
+The parser relies on the W3C keyboard model exposed by `KeyboardEvent` and encoded in `src/consts.ts`:
+
+- **`key`** – The logical character or action produced by the key (e.g., `"a"`, `"Enter"`, `"+"`). We store this in `KEY_DEFINITIONS[code].key` and match it against `event.key`.
+- **`code`** – The physical key location (e.g., `"KeyA"`, `"ShiftLeft"`, `"NumpadAdd"`). This stays the same regardless of keyboard layout and is matched against `event.code`.
+- **`keyCode` / `which`** – Legacy numeric codes kept for compatibility. We surface the numeric value from `KEY_DEFINITIONS` and mirror it onto `which`, just like the browser does.
+
+Every `ParsedCombination` exposes all three so callers can pick the level of precision they need.
+
+### Alias layers
+
+To keep authoring ergonomic we pre-compute several alias maps when resolving tokens:
+
+- **Key aliases (`KEY_ALIASES`)** let you write friendly names for logical keys. Examples: `"esc" → "Escape"`, `"plus" → "+"`, `"space" → " "`.
+- **Code aliases (`CODE_ALIAS_MAP`)** cover physical key nicknames such as `"lshift" → "ShiftLeft"` or `"prtsc" → "PrintScreen"`.
+- **Shift-derived symbols (`SHIFT_KEY_MAPPINGS`)** synthesize characters that only appear when Shift is held. For instance, `"Equal" + Shift → "+"`, so resolving `"plus"` yields both `{ code: "NumpadAdd", key: "+" }` and `{ code: "Equal", key: "+" }`.
+
+Aliases are applied in this order inside `resolveKey`: exact code → code alias → key value → key alias → fallback. This ensures that precise tokens stay precise while still supporting more human-readable inputs.
+
+### Combination syntax and modifiers
+
+Combinations can be declared as strings (`"ctrl+shift+p"`) or arrays (`["ctrl", "shift", "p"]`). The parser normalizes them as follows:
+
+```ts
+const stringForm = "ctrl+shift+p";
+const arrayForm: string[] = ["ctrl", "shift", "p"]; // Equivalent representation
+```
+
+- Tokens are split by `splitBy` (default `"+"`) and lower-cased via `preMap`.
+- Every segment before the last must resolve to a modifier. Supported modifier tokens are:
+  - **Control:** `ctrl`, `control`
+  - **Meta:** `meta`, `cmd`, `command`, `win`, `windows`
+  - **Shift:** `shift`
+  - **Alt:** `alt`, `option`
+- The special `mod` token resolves to `cmd` on macOS and `ctrl` elsewhere (see `preMap`).
+- The final token resolves to the main key and may expand to multiple physical variants.
+
+**Shift inference exception:** For keys that can only be produced with Shift (e.g., `"+"` from the Equal key), the library automatically adds `shiftKey: true`. See the [Shift-Derived Keys](#shift-derived-keys) section for details.
+
+**Modifier side note.** Browser events only expose boolean modifier flags (`metaKey`, `ctrlKey`, `shiftKey`, `altKey`). When a shortcut includes a modifier plus another key (e.g., `ctrl+a`), the resulting `KeyboardEvent` cannot distinguish between left and right modifier keys. Consequently, combinations like `"ControlLeft+a"` and `"ControlRight+a"` are both parsed to produce the same result: `{ ctrlKey: true, ... }`. The physical `code` distinction is lost because browsers don't provide separate flags for `ctrlLeftKey` vs `ctrlRightKey`.
+
+Invalid sequences (missing main key, duplicate modifiers, empty segments) produce an empty array of parsed combinations.
+
+### Resolution flow
+
+`parseCombination` processes each token through `resolveKey` to obtain one or more `ResolvedKey` objects, then combines modifiers with main keys:
+
+1. **Normalize tokens:** Split by `splitBy`, trim (if enabled), and convert to lowercase.
+2. **Separate modifiers from main key:** All tokens except the last must be modifiers.
+3. **Resolve modifiers:** Convert modifier tokens to boolean flags (`metaKey`, `ctrlKey`, etc.), respecting `allowCodeAsModifier`.
+4. **Resolve the main key:** Look up the last token through the alias layers described above. This may return multiple physical key variants (e.g., both `Digit0` and `Numpad0` for `"0"`).
+5. **Generate combinations:** Create one `ParsedCombination` for each main key variant, each including key/code/keyCode metadata plus all modifier flags.
+
+`matchesHotkeys` then compares these parsed combinations against the actual `KeyboardEvent` using the selected comparator.
+
+### Shift-Derived Keys
+
+Some keys produce different characters when Shift is held (e.g., pressing `Equal` produces `"="`, but `Shift+Equal` produces `"+"`). The library handles these intelligently through **automatic Shift inference**.
+
+#### Automatic Shift Inference
+
+When you use a key alias or key value that can only be produced with Shift (e.g., `"plus"` → `"+"`), the library automatically adds `shiftKey: true` for physical keys that require it:
+
+```ts
+parseCombination("ctrl+plus");
+// Returns two variants:
+// [
+//   { code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false, ... },
+//   { code: "Equal", key: "+", ctrlKey: true, shiftKey: true, ... }  // ← Shift automatically inferred
+// ]
+```
+
+This ensures that `"ctrl+plus"` correctly matches real keyboard events:
+
+- ✅ `Ctrl + NumpadAdd` (no Shift needed for numpad plus)
+- ✅ `Ctrl + Shift + Equal` (Shift needed to produce "+" from Equal key)
+
+**Why this behavior?**
+
+Without automatic Shift inference, the `Equal` variant would have `shiftKey: false`, making it impossible to match any real keyboard event (since you cannot produce `"+"` from the Equal key without holding Shift). The library prioritizes matching real user input over strict adherence to "never infer modifiers."
+
+#### All Shift-Derived Keys
+
+The following keys automatically get `shiftKey: true` when referenced by their shifted character:
+
+- `+` (from `Equal`), `!` (from `Digit1`), `@` (from `Digit2`), `#` (from `Digit3`)
+- `$` (from `Digit4`), `%` (from `Digit5`), `^` (from `Digit6`), `&` (from `Digit7`)
+- `*` (from `Digit8`), `(` (from `Digit9`), `)` (from `Digit0`)
+- `_` (from `Minus`), `~` (from `Backquote`)
+- `{` (from `BracketLeft`), `}` (from `BracketRight`), `|` (from `Backslash`)
+- `:` (from `Semicolon`), `"` (from `Quote`)
+- `<` (from `Comma`), `>` (from `Period`), `?` (from `Slash`)
+
+#### Explicit Control
+
+When you need fine-grained control:
+
+```ts
+// Only numpad plus (no shift inference needed)
+parseCombination("ctrl+numpadadd");
+// [{ code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false }]
+
+// Only top-row plus (explicit shift)
+parseCombination("ctrl+shift+=");
+// [{ code: "Equal", key: "=", ctrlKey: true, shiftKey: true }]
+
+// Base Equal key without shift (produces "=")
+parseCombination("ctrl+=");
+// [{ code: "Equal", key: "=", ctrlKey: true, shiftKey: false }]
+```
+
+#### Explicit Shift Takes Precedence
+
+If you explicitly include `shift` in your combination, both variants (if applicable) will have `shiftKey: true`:
+
+```ts
+parseCombination("shift+plus");
+// [
+//   { code: "NumpadAdd", key: "+", shiftKey: true },  // Matches Shift+NumpadAdd
+//   { code: "Equal", key: "+", shiftKey: true }       // Matches Shift+Equal (produces "+")
+// ]
+```
+
+### Ambiguous keys
+
+Some key inputs map to multiple physical keys. The parser returns all possibilities:
+
+```ts
+parseCombination("0");
+// Returns both:
+// 1. { code: "Digit0", ... }    // Top row
+// 2. { code: "Numpad0", ... }   // Numpad
+
+parseCombination("ctrl");
+// Returns both:
+// 1. { code: "ControlLeft", ctrlKey: true, ... }
+// 2. { code: "ControlRight", ctrlKey: true, ... }
+```
+
+`matchesHotkeys` tests all variants and returns `true` if any matches.
+
+### Unknown or fallback tokens
+
+Unknown key names create fallback objects with `-1` for numeric fields:
+
+```ts
+resolveKey("unknownkey");
+// [{ key: "unknownkey", code: "unknownkey", keyCode: -1, which: -1 }]
+
+parseCombination("ctrl+unknownkey");
+// [{ key: "unknownkey", code: "unknownkey", keyCode: -1, which: -1, ctrlKey: true, ... }]
+```
+
+This preserves type consistency and allows detection of unknown keys. Using `-1` (instead of `undefined`) keeps the shape consistent and makes the data JSON-serializable.
+
+### Parsed combination payload
+
+```ts
+interface ParsedCombination {
+  code: string; // Physical key code (e.g., "KeyA")
+  key: string; // Logical key value (e.g., "a")
+  keyCode: number; // Legacy numeric code (or -1)
+  which: number; // Alias of keyCode
+  metaKey: boolean; // Cmd/Win modifier
+  ctrlKey: boolean; // Control modifier
+  shiftKey: boolean; // Shift modifier
+  altKey: boolean; // Alt/Option modifier
+}
+```
+
+All fields are present to match `KeyboardEvent` shape and support serialization.
+
+## Limitations
+
+- **No key sequences:** This library matches single key combinations. For sequences like `g g` (Vim-style), implement your own state machine.
+- **No automatic conflict resolution:** The library doesn't manage shortcut priorities or conflicts. This is application-layer logic.
+
+## Standards Reference
+
+This library follows W3C specifications:
+
+- [UI Events KeyboardEvent code values](https://www.w3.org/TR/uievents-code/)
+- [UI Events KeyboardEvent key values](https://www.w3.org/TR/uievents-key/)
 
 ## License
 
-MIT © Ze-Zheng Wu
+MIT

@@ -207,4 +207,85 @@ if (import.meta.vitest) {
     ).toBe(true);
     defineUA(originalUA);
   });
+
+  it("matchesHotkeys - shift-derived keys match real events", () => {
+    // Test that shift-derived keys (e.g., "plus") can actually match real keyboard events
+
+    const plusHotkeys: Hotkey[] = [{ combination: "ctrl+plus" }];
+
+    // Should match Ctrl + NumpadAdd (no shift needed)
+    expect(
+      matchesHotkeys(
+        plusHotkeys,
+        evt({
+          code: "NumpadAdd",
+          key: "+",
+          keyCode: 107,
+          which: 107,
+          ctrlKey: true,
+          shiftKey: false,
+        }),
+      ),
+    ).toBe(true);
+
+    // Should match Ctrl + Shift + Equal (produces "+")
+    expect(
+      matchesHotkeys(
+        plusHotkeys,
+        evt({
+          code: "Equal",
+          key: "+",
+          keyCode: 187,
+          which: 187,
+          ctrlKey: true,
+          shiftKey: true,
+        }),
+      ),
+    ).toBe(true);
+
+    // Should NOT match Ctrl + Equal without Shift (produces "=", not "+")
+    expect(
+      matchesHotkeys(
+        plusHotkeys,
+        evt({
+          code: "Equal",
+          key: "=",
+          keyCode: 187,
+          which: 187,
+          ctrlKey: true,
+          shiftKey: false,
+        }),
+      ),
+    ).toBe(false);
+
+    // Test with explicit "=" - should only match Equal without shift
+    const equalHotkeys: Hotkey[] = [{ combination: "ctrl+=" }];
+    expect(
+      matchesHotkeys(
+        equalHotkeys,
+        evt({
+          code: "Equal",
+          key: "=",
+          keyCode: 187,
+          which: 187,
+          ctrlKey: true,
+          shiftKey: false,
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesHotkeys(
+        equalHotkeys,
+        evt({
+          code: "Equal",
+          key: "+",
+          keyCode: 187,
+          which: 187,
+          ctrlKey: true,
+          shiftKey: true,
+        }),
+      ),
+    ).toBe(false);
+  });
 }

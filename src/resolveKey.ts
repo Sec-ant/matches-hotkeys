@@ -252,8 +252,10 @@ function findByKeyAlias(input: string): ResolvedKey[] {
   if (!aliasEntry) return [];
 
   const [aliasedKey] = aliasEntry;
-  // find all codes that yield this key
+  // find all codes that yield this key (same logic as findByKey)
   const results: ResolvedKey[] = [];
+
+  // First, check direct key matches in KEY_DEFINITIONS
   Object.entries(KEY_DEFINITIONS).forEach(([code, def]) => {
     if (def.key.toLowerCase() === aliasedKey.toLowerCase()) {
       results.push({
@@ -264,6 +266,23 @@ function findByKeyAlias(input: string): ResolvedKey[] {
       });
     }
   });
+
+  // Then, check for shifted key combinations
+  Object.entries(SHIFT_KEY_MAPPINGS).forEach(([baseCode, shiftedKey]) => {
+    if (shiftedKey.toLowerCase() === aliasedKey.toLowerCase()) {
+      const baseDefinition =
+        KEY_DEFINITIONS[baseCode as keyof typeof KEY_DEFINITIONS];
+      if (baseDefinition) {
+        results.push({
+          key: shiftedKey,
+          code: baseCode, // The actual code is still the base key
+          keyCode: baseDefinition.keyCode,
+          which: baseDefinition.keyCode,
+        });
+      }
+    }
+  });
+
   return results;
 }
 
@@ -529,6 +548,23 @@ if (import.meta.vitest) {
           "key": "Meta",
           "keyCode": 93,
           "which": 93,
+        },
+      ]
+    `);
+    // Test key alias that maps to shifted key (regression test for SHIFT_KEY_MAPPINGS support)
+    expect(resolveKey("plus")).toMatchInlineSnapshot(`
+      [
+        {
+          "code": "NumpadAdd",
+          "key": "+",
+          "keyCode": 107,
+          "which": 107,
+        },
+        {
+          "code": "Equal",
+          "key": "+",
+          "keyCode": 187,
+          "which": 187,
         },
       ]
     `);
