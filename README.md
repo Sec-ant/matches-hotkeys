@@ -380,7 +380,7 @@ if (
 
 ## Key Concepts
 
-### Keyboard data model
+### Keyboard Data Model
 
 The parser relies on the W3C keyboard model exposed by `KeyboardEvent` and encoded in `src/consts.ts`:
 
@@ -390,7 +390,7 @@ The parser relies on the W3C keyboard model exposed by `KeyboardEvent` and encod
 
 Every `ParsedCombination` exposes all three so callers can pick the level of precision they need.
 
-### Alias layers
+### Alias Layers
 
 To keep authoring ergonomic we pre-compute several alias maps when resolving tokens:
 
@@ -400,7 +400,7 @@ To keep authoring ergonomic we pre-compute several alias maps when resolving tok
 
 Aliases are applied in this order inside `resolveKey`: exact code → code alias → key value → key alias → fallback. This ensures that precise tokens stay precise while still supporting more human-readable inputs.
 
-### Combination syntax and modifiers
+### Combination Syntax and Modifiers
 
 Combinations can be declared as strings (`"ctrl+shift+p"`) or arrays (`["ctrl", "shift", "p"]`). The parser normalizes them as follows:
 
@@ -424,7 +424,7 @@ const arrayForm: string[] = ["ctrl", "shift", "p"]; // Equivalent representation
 
 Invalid sequences (missing main key, duplicate modifiers, empty segments) produce an empty array of parsed combinations.
 
-### Resolution flow
+### Resolution Flow
 
 `parseCombination` processes each token through `resolveKey` to obtain one or more `ResolvedKey` objects, then combines modifiers with main keys:
 
@@ -504,7 +504,7 @@ parseCombination("shift+plus");
 // ]
 ```
 
-### Ambiguous keys
+### Ambiguous Keys
 
 Some key inputs map to multiple physical keys. The parser returns all possibilities:
 
@@ -522,7 +522,7 @@ parseCombination("ctrl");
 
 `matchesHotkeys` tests all variants and returns `true` if any matches.
 
-### Unknown or fallback tokens
+### Unknown or Fallback Tokens
 
 Unknown key names create fallback objects with `-1` for numeric fields:
 
@@ -536,7 +536,7 @@ parseCombination("ctrl+unknownkey");
 
 This preserves type consistency and allows detection of unknown keys. Using `-1` (instead of `undefined`) keeps the shape consistent and makes the data JSON-serializable.
 
-### Parsed combination payload
+### Parsed Combination Payload
 
 ```ts
 interface ParsedCombination {
