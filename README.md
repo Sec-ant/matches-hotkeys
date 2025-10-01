@@ -122,18 +122,17 @@ parseCombination("0");
 // ]
 
 // Key aliases work for shifted keys (e.g., "plus" → "+")
-// Shift is automatically inferred for keys that require it
 parseCombination("ctrl+plus"); // "plus" is an alias for "+"
 // [
-//   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },    // Numpad: doesn't need Shift
-//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: true, ... }          // Top-row: Shift automatically inferred
+//   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },    // Numpad
+//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: false, ... }          // Top-row
 // ]
 
 // Option: splitBy - Use different separator for literal "+" key
 parseCombination("ctrl-+", { splitBy: "-" }); // Direct "+" character as key
 // [
 //   { code: "NumpadAdd", key: "+", keyCode: 107, which: 107, ctrlKey: true, shiftKey: false, ... },
-//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: true, ... }       // Shift automatically inferred
+//   { code: "Equal", key: "+", keyCode: 187, which: 187, ctrlKey: true, shiftKey: false, ... }
 // ]
 
 // Option: trim - Preserve whitespace to match space key
@@ -418,8 +417,6 @@ const arrayForm: string[] = ["ctrl", "shift", "p"]; // Equivalent representation
 - The special `mod` token resolves to `cmd` on macOS and `ctrl` elsewhere (see `preMap`).
 - The final token resolves to the main key and may expand to multiple physical variants.
 
-**Shift inference exception:** For keys that can only be produced with Shift (e.g., `"+"` from the Equal key), the library automatically adds `shiftKey: true`. See the [Shift-Derived Keys](#shift-derived-keys) section for details.
-
 **Modifier side note.** Browser events only expose boolean modifier flags (`metaKey`, `ctrlKey`, `shiftKey`, `altKey`). When a shortcut includes a modifier plus another key (e.g., `ctrl+a`), the resulting `KeyboardEvent` cannot distinguish between left and right modifier keys. Consequently, combinations like `"ControlLeft+a"` and `"ControlRight+a"` are both parsed to produce the same result: `{ ctrlKey: true, ... }`. The physical `code` distinction is lost because browsers don't provide separate flags for `ctrlLeftKey` vs `ctrlRightKey`.
 
 Invalid sequences (missing main key, duplicate modifiers, empty segments) produce an empty array of parsed combinations.
@@ -438,33 +435,13 @@ Invalid sequences (missing main key, duplicate modifiers, empty segments) produc
 
 ### Shift-Derived Keys
 
-Some keys produce different characters when Shift is held (e.g., pressing `Equal` produces `"="`, but `Shift+Equal` produces `"+"`). The library handles these intelligently through **automatic Shift inference**.
+Some keys produce different characters when Shift is held (e.g., pressing `Equal` produces `"="`, but `Shift+Equal` produces `"+"`). The library handles these through the `SHIFT_KEY_MAPPINGS` constant, which maps base keys to their shifted characters.
 
-#### Automatic Shift Inference
+When you reference a shifted character (e.g., `"+"`, `"!"`, `"@"`), the library will resolve it to the appropriate physical key. For example, `"+"` resolves to both `NumpadAdd` (which produces `"+"` without Shift) and `Equal` (which produces `"+"` with Shift).
 
-When you use a key alias or key value that can only be produced with Shift (e.g., `"plus"` → `"+"`), the library automatically adds `shiftKey: true` for physical keys that require it:
+#### Shift-Derived Keys Mapping
 
-```ts
-parseCombination("ctrl+plus");
-// Returns two variants:
-// [
-//   { code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false, ... },
-//   { code: "Equal", key: "+", ctrlKey: true, shiftKey: true, ... }  // ← Shift automatically inferred
-// ]
-```
-
-This ensures that `"ctrl+plus"` correctly matches real keyboard events:
-
-- ✅ `Ctrl + NumpadAdd` (no Shift needed for numpad plus)
-- ✅ `Ctrl + Shift + Equal` (Shift needed to produce "+" from Equal key)
-
-**Why this behavior?**
-
-Without automatic Shift inference, the `Equal` variant would have `shiftKey: false`, making it impossible to match any real keyboard event (since you cannot produce `"+"` from the Equal key without holding Shift). The library prioritizes matching real user input over strict adherence to "never infer modifiers."
-
-#### All Shift-Derived Keys
-
-The following keys automatically get `shiftKey: true` when referenced by their shifted character:
+The following keys have shifted character mappings:
 
 - `+` (from `Equal`), `!` (from `Digit1`), `@` (from `Digit2`), `#` (from `Digit3`)
 - `$` (from `Digit4`), `%` (from `Digit5`), `^` (from `Digit6`), `&` (from `Digit7`)
@@ -474,34 +451,36 @@ The following keys automatically get `shiftKey: true` when referenced by their s
 - `:` (from `Semicolon`), `"` (from `Quote`)
 - `<` (from `Comma`), `>` (from `Period`), `?` (from `Slash`)
 
-#### Explicit Control
+#### Explicit Shift Control
 
-When you need fine-grained control:
-
-```ts
-// Only numpad plus (no shift inference needed)
-parseCombination("ctrl+numpadadd");
-// [{ code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false }]
-
-// Only top-row plus (explicit shift)
-parseCombination("ctrl+shift+=");
-// [{ code: "Equal", key: "=", ctrlKey: true, shiftKey: true }]
-
-// Base Equal key without shift (produces "=")
-parseCombination("ctrl+=");
-// [{ code: "Equal", key: "=", ctrlKey: true, shiftKey: false }]
-```
-
-#### Explicit Shift Takes Precedence
-
-If you explicitly include `shift` in your combination, both variants (if applicable) will have `shiftKey: true`:
+To match a shifted character, you need to explicitly include `shift` in your combination:
 
 ```ts
+// To match the "+" character from the Equal key, you need explicit shift
+parseCombination("shift+=");
+// [{ code: "Equal", key: "=", shiftKey: true }]
+
+// Or use "shift+plus" which resolves to both variants with explicit shift
 parseCombination("shift+plus");
 // [
 //   { code: "NumpadAdd", key: "+", shiftKey: true },  // Matches Shift+NumpadAdd
 //   { code: "Equal", key: "+", shiftKey: true }       // Matches Shift+Equal (produces "+")
 // ]
+
+// Without explicit shift, both variants have shiftKey: false
+parseCombination("plus");
+// [
+//   { code: "NumpadAdd", key: "+", shiftKey: false },
+//   { code: "Equal", key: "+", shiftKey: false }
+// ]
+
+// Base Equal key without shift (produces "=")
+parseCombination("ctrl+=");
+// [{ code: "Equal", key: "=", ctrlKey: true, shiftKey: false }]
+
+// Only numpad plus (no shift)
+parseCombination("ctrl+numpadadd");
+// [{ code: "NumpadAdd", key: "+", ctrlKey: true, shiftKey: false }]
 ```
 
 ### Ambiguous Keys

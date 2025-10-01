@@ -1,9 +1,5 @@
 import type { Writable } from "type-fest";
-import {
-  MODIFIER_CODE_TOKENS,
-  MODIFIER_KEY_MAP,
-  SHIFT_KEY_MAPPINGS,
-} from "./consts";
+import { MODIFIER_CODE_TOKENS, MODIFIER_KEY_MAP } from "./consts";
 import { preMap } from "./preMap";
 import { resolveKey } from "./resolveKey";
 
@@ -162,22 +158,10 @@ export function parseCombination(
 
   // Generate results for all resolved key variants
   return resolvedKeys.map((resolved) => {
-    // Check if this resolved key is a shift-derived symbol
-    // (e.g., Equal + Shift → "+", Digit1 + Shift → "!")
-    const isShiftDerived = Object.entries(SHIFT_KEY_MAPPINGS).some(
-      ([baseCode, shiftedKey]) =>
-        resolved.code === baseCode && resolved.key === shiftedKey,
-    );
-
-    // For shift-derived keys, automatically set shiftKey: true
-    // This ensures the combination can actually match real keyboard events
-    // (e.g., "plus" will match Shift+Equal, which produces "+")
-    const inferredShiftKey = isShiftDerived || seenModifiers.has("shiftKey");
-
     return {
       metaKey: seenModifiers.has("metaKey"),
       ctrlKey: seenModifiers.has("ctrlKey"),
-      shiftKey: inferredShiftKey,
+      shiftKey: seenModifiers.has("shiftKey"),
       altKey: seenModifiers.has("altKey"),
       key: resolved.key,
       code: resolved.code,
@@ -871,11 +855,10 @@ if (import.meta.vitest) {
     defineUA(originalUA);
   });
 
-  it("parseCombination - shift-derived keys automatic inference", () => {
-    // Test that shift-derived keys automatically get shiftKey: true
-    // This ensures they can actually match real keyboard events
+  it("parseCombination - shift-derived keys", () => {
+    // Test that shift-derived keys work correctly without automatic inference
 
-    // "plus" ("+") can come from NumpadAdd (no shift) or Equal (needs shift)
+    // "plus" ("+") can come from NumpadAdd (no shift) or Equal (with shift explicit in event)
     expect(parseCombination("plus")).toMatchInlineSnapshot(`
       [
         {
@@ -895,7 +878,7 @@ if (import.meta.vitest) {
           "key": "+",
           "keyCode": 187,
           "metaKey": false,
-          "shiftKey": true,
+          "shiftKey": false,
           "which": 187,
         },
       ]
@@ -920,7 +903,7 @@ if (import.meta.vitest) {
           "key": "+",
           "keyCode": 187,
           "metaKey": false,
-          "shiftKey": true,
+          "shiftKey": false,
           "which": 187,
         },
       ]
@@ -978,7 +961,7 @@ if (import.meta.vitest) {
           "key": "!",
           "keyCode": 49,
           "metaKey": false,
-          "shiftKey": true,
+          "shiftKey": false,
           "which": 49,
         },
       ]
@@ -993,7 +976,7 @@ if (import.meta.vitest) {
           "key": "@",
           "keyCode": 50,
           "metaKey": false,
-          "shiftKey": true,
+          "shiftKey": false,
           "which": 50,
         },
       ]
