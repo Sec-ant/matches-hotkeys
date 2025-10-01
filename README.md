@@ -1,6 +1,6 @@
 # matches-hotkeys
 
-Parse keyboard shortcut specifications and match them against `KeyboardEvent` objects.
+Parse keyboard shortcuts and match them against `KeyboardEvent` objects.
 
 ## Overview
 
