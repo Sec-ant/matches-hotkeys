@@ -210,8 +210,11 @@ if (import.meta.vitest) {
 
   it("matchesHotkeys - shift-derived keys match real events", () => {
     // Test that shift-derived keys (e.g., "plus") can actually match real keyboard events
+    // when using inferShift: true option
 
-    const plusHotkeys: Hotkey[] = [{ combination: "ctrl+plus" }];
+    const plusHotkeys: Hotkey[] = [
+      { combination: "ctrl+plus", options: { inferShift: true } },
+    ];
 
     // Should match Ctrl + NumpadAdd (no shift needed)
     expect(
