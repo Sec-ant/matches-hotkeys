@@ -1,4 +1,14 @@
-import type { ExtractStrict } from "type-fest";
+import type { ExtractStrict, LiteralUnion } from "type-fest";
+
+export type CommonCombinationToken =
+  | keyof typeof KEY_DEFINITIONS
+  | Lowercase<keyof typeof KEY_DEFINITIONS>
+  | (typeof KEY_DEFINITIONS)[keyof typeof KEY_DEFINITIONS]["key"]
+  | Lowercase<(typeof KEY_DEFINITIONS)[keyof typeof KEY_DEFINITIONS]["key"]>
+  | (typeof KEY_ALIASES)[keyof typeof KEY_ALIASES][number]
+  | (typeof CODE_ALIASES)[keyof typeof CODE_ALIASES][number];
+
+export type CombinationToken = LiteralUnion<CommonCombinationToken, string>;
 
 /**
  * Single data source keyboard mapping - Compliant with W3C standards

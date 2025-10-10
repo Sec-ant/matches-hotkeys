@@ -1,5 +1,6 @@
-import type { Writable } from "type-fest";
+import type { Writable, LiteralUnion } from "type-fest";
 import {
+  type CombinationToken,
   MODIFIER_CODE_TOKENS,
   MODIFIER_KEY_MAP,
   SHIFT_KEY_MAPPINGS,
@@ -26,7 +27,7 @@ export interface ParsedCombination
 /**
  * Options for parsing a hotkey combination.
  */
-export interface ParseCombinationOptions {
+export interface ParseCombinationOptions<S extends string = "+"> {
   /**
    * The character(s) to split the string form hotkey combination string by.
    *
@@ -36,7 +37,7 @@ export interface ParseCombinationOptions {
    *
    * @default "+"
    */
-  splitBy?: string;
+  splitBy?: LiteralUnion<S, string>;
   /**
    * Whether to trim whitespace from each token.
    *
@@ -87,7 +88,9 @@ export interface ParseCombinationOptions {
  * You can use either a string or an array of strings to represent a combination of keys.
  * For example, `"ctrl+a"` is equivalent to `["ctrl", "a"]`.
  */
-export type Combination = string | string[];
+export type Combination =
+  | LiteralUnion<CombinationToken, string>
+  | CombinationToken[];
 
 /**
  * Parses a hotkey combination string into its individual components.
@@ -96,14 +99,14 @@ export type Combination = string | string[];
  * @param options Options for parsing.
  * @returns An array of parsed hotkey combinations.
  */
-export function parseCombination(
+export function parseCombination<S extends string>(
   combination: Combination,
   {
     splitBy = "+",
     trim,
     allowCodeAsModifier = true,
     inferShift = false,
-  }: ParseCombinationOptions = {},
+  }: ParseCombinationOptions<S> = {},
 ): ParsedCombination[] {
   const isCombinationArray = Array.isArray(combination);
 
