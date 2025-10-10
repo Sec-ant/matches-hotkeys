@@ -1,5 +1,11 @@
 # matches-hotkeys
 
+## 0.1.3
+
+### Patch Changes
+
+- 9245b10: Improve type safety for `Combination` and `ParseCombinationOptions` with better autocomplete support
+
 ## 0.1.2
 
 ### Patch Changes
