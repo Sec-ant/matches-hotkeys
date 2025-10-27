@@ -1,4 +1,4 @@
-import type { Writable, LiteralUnion } from "type-fest";
+import type { LiteralUnion, Writable } from "type-fest";
 import {
   type CombinationToken,
   MODIFIER_CODE_TOKENS,

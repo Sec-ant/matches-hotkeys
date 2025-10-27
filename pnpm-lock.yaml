@@ -27,6 +27,9 @@ importers:
       '@vitest/browser':
         specifier: ^4.0.0
         version: 4.0.3(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))(vitest@4.0.3)
+      '@vitest/browser-playwright':
+        specifier: ^4.0.3
+        version: 4.0.3(playwright@1.55.1)(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))(vitest@4.0.3)
       '@vitest/coverage-istanbul':
         specifier: ^4.0.0
         version: 4.0.3(vitest@4.0.3)
@@ -68,7 +71,7 @@ importers:
         version: 7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1)
       vitest:
         specifier: ^4.0.0
-        version: 4.0.3(@types/node@24.6.1)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
+        version: 4.0.3(@types/node@24.6.1)(@vitest/browser-playwright@4.0.3)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
 
 packages:
 
@@ -595,6 +598,12 @@ packages:
 
   '@types/node@24.6.1':
     resolution: {integrity: sha512-ljvjjs3DNXummeIaooB4cLBKg2U6SPI6Hjra/9rRIy7CpM0HpLtG9HptkMKAb4HYWy5S7HUvJEuWgr/y0U8SHw==}
+
+  '@vitest/browser-playwright@4.0.3':
+    resolution: {integrity: sha512-dWbOAtgWRsa4ErGqBqb1noX8BzoHy3Ti1wgm+rA7qJ9bB1JaTDUK1yZk+WAhD/zKw9s6Eyi+etPumId1U8W7dA==}
+    peerDependencies:
+      playwright: '*'
+      vitest: 4.0.3
 
   '@vitest/browser@4.0.3':
     resolution: {integrity: sha512-XmGOU2m0x86yFIrAFiIQ5yV7dpk8hW1HCohUR7QOGfywGS8z2WshdEZc5A+G67mS69L8Ub3NEttjWtXVhw/Sew==}
@@ -2048,6 +2057,19 @@ snapshots:
     dependencies:
       undici-types: 7.13.0
 
+  '@vitest/browser-playwright@4.0.3(playwright@1.55.1)(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))(vitest@4.0.3)':
+    dependencies:
+      '@vitest/browser': 4.0.3(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))(vitest@4.0.3)
+      '@vitest/mocker': 4.0.3(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))
+      playwright: 1.55.1
+      tinyrainbow: 3.0.3
+      vitest: 4.0.3(@types/node@24.6.1)(@vitest/browser-playwright@4.0.3)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+
   '@vitest/browser@4.0.3(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))(vitest@4.0.3)':
     dependencies:
       '@vitest/mocker': 4.0.3(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))
@@ -2057,7 +2079,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.0.3
-      vitest: 4.0.3(@types/node@24.6.1)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
+      vitest: 4.0.3(@types/node@24.6.1)(@vitest/browser-playwright@4.0.3)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
       ws: 8.18.3
     transitivePeerDependencies:
       - bufferutil
@@ -2076,7 +2098,7 @@ snapshots:
       istanbul-reports: 3.2.0
       magicast: 0.3.5
       tinyrainbow: 3.0.3
-      vitest: 4.0.3(@types/node@24.6.1)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
+      vitest: 4.0.3(@types/node@24.6.1)(@vitest/browser-playwright@4.0.3)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -2123,7 +2145,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.3(@types/node@24.6.1)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
+      vitest: 4.0.3(@types/node@24.6.1)(@vitest/browser-playwright@4.0.3)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1)
 
   '@vitest/utils@4.0.3':
     dependencies:
@@ -2853,7 +2875,7 @@ snapshots:
       tsx: 4.20.6
       yaml: 2.8.1
 
-  vitest@4.0.3(@types/node@24.6.1)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1):
+  vitest@4.0.3(@types/node@24.6.1)(@vitest/browser-playwright@4.0.3)(@vitest/ui@4.0.3)(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
       '@vitest/expect': 4.0.3
       '@vitest/mocker': 4.0.3(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))
@@ -2877,6 +2899,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.6.1
+      '@vitest/browser-playwright': 4.0.3(playwright@1.55.1)(vite@7.1.7(@types/node@24.6.1)(tsx@4.20.6)(yaml@2.8.1))(vitest@4.0.3)
       '@vitest/ui': 4.0.3(vitest@4.0.3)
     transitivePeerDependencies:
       - jiti
