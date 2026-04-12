@@ -308,12 +308,14 @@ The library exports several pre-built comparators you can use directly or combin
 import {
   DEFAULT_COMPARATOR, // Matches by (key OR code OR keyCode OR which) + all modifiers
   MODIFIERS_COMPARATOR, // Only checks modifier flags match
-  COMPARE_BY_KEY, // Matches by key + all modifiers
+  COMPARE_BY_KEY, // Matches by key (case-insensitive) + all modifiers
   COMPARE_BY_CODE, // Matches by code + all modifiers
   COMPARE_BY_KEY_CODE, // Matches by keyCode + all modifiers
   COMPARE_BY_WHICH, // Matches by which + all modifiers
 } from "matches-hotkeys";
 ```
+
+> **Note:** `COMPARE_BY_KEY` uses case-insensitive matching for the `key` field. This ensures that shortcuts like `"a"` correctly match `Shift+KeyA` events (where `event.key` is `"A"`), avoiding a common mismatch when the Shift modifier changes the case of letter keys.
 
 #### Example: Ignore Shift modifier
 

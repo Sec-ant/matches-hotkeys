@@ -1,15 +1,25 @@
 {
-  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"],
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "allowJs": true,
-    "noEmit": true
+    "target": "ESNext",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["ESNext", "DOM"],
+    "types": ["vitest/importMeta"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
   },
-  "include": ["./scripts", "./vite.config.ts", "./package.json", "tests.bak"],
-  "references": [
-    {
-      "path": "./tsconfig.pkg.json"
-    }
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
 }

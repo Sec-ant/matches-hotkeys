@@ -2,26 +2,44 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": [
-      "**",
-      "!**/__snapshots__",
-      "!**/fixtures",
-      "!**/.changeset/pre.json"
-    ]
+    "includes": ["**", "!**/*.html"]
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "formatter": {
+    "enabled": true,
     "indentStyle": "space"
   },
   "linter": {
+    "enabled": true,
     "rules": {
       "recommended": true,
       "suspicious": {
         "noAssignInExpressions": "off",
-        "noEmptyInterface": "off"
+        "noUnsafeDeclarationMerging": "off"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error"
       }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
     }
   },
   "vcs": {
@@ -33,19 +51,15 @@
   "json": {
     "parser": {
       "allowTrailingCommas": true
-    },
-    "formatter": {
-      "trailingCommas": "none"
     }
   },
   "overrides": [
     {
-      "includes": ["**/tests/**/*.ts"],
-      "linter": {
-        "rules": {
-          "performance": {
-            "noDelete": "off"
-          }
+      "includes": ["**/*.jsonc"],
+      "json": {
+        "parser": {
+          "allowComments": true,
+          "allowTrailingCommas": true
         }
       }
     },
@@ -54,6 +68,16 @@
       "json": {
         "formatter": {
           "lineWidth": 1
+        }
+      }
+    },
+    {
+      "includes": ["src/**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noUnusedTemplateLiteral": "off"
+          }
         }
       }
     }

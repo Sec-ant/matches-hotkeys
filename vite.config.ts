@@ -1,17 +1,56 @@
+import { cpSync, writeFileSync } from "node:fs";
 import { playwright } from "@vitest/browser-playwright";
+import dts from "vite-plugin-dts";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
+    minify: false,
     lib: {
-      entry: {
-        index: "src/index.ts",
-      },
-      formats: ["es"],
-      fileName: (_, entryName) => `${entryName}.js`,
+      entry: "src/index.ts",
+      name: "MatchesHotkeys",
     },
-    outDir: "dist/es",
+    rollupOptions: {
+      output: [
+        {
+          format: "es",
+          dir: "dist/es",
+          entryFileNames: "index.js",
+        },
+        {
+          format: "cjs",
+          dir: "dist/cjs",
+          entryFileNames: "index.js",
+        },
+        {
+          format: "iife",
+          dir: "dist/iife",
+          name: "MatchesHotkeys",
+          entryFileNames: "index.js",
+        },
+      ],
+    },
   },
+  plugins: [
+    dts({
+      outDir: "dist/es",
+      rollupTypes: true,
+      afterBuild() {
+        cpSync("dist/es/index.d.ts", "dist/cjs/index.d.ts");
+      },
+    }),
+    {
+      name: "cjs-package-json",
+      writeBundle(options) {
+        if (options.format === "cjs" && options.dir) {
+          writeFileSync(
+            `${options.dir}/package.json`,
+            `${JSON.stringify({ type: "commonjs" }, undefined, 2)}\n`,
+          );
+        }
+      },
+    },
+  ],
   test: {
     coverage: {
       enabled: false,
@@ -24,23 +63,14 @@ export default defineConfig({
         {
           browser: "chromium",
         },
-        // {
-        //   browser: "firefox",
-        // },
-        // {
-        //   browser: "webkit",
-        // },
       ],
       provider: playwright(),
       headless: true,
       screenshotFailures: false,
     },
-    // Ensure test files are included
     include: ["tests/**/*.test.ts"],
-    // Enable inline tests in source files
     includeSource: ["src/**/*.{js,ts}"],
   },
-  // Define vitest when bundling for production
   define: {
     "import.meta.vitest": "undefined",
   },

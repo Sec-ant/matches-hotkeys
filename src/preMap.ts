@@ -1,17 +1,31 @@
+let _isMacCached: boolean | undefined;
+
 /**
  * Determines if the current environment is running on macOS.
  *
  * This function checks the user agent string to detect macOS systems. Useful
  * for implementing platform-specific behaviors or UI adjustments.
+ * The result is cached after first call for performance.
  *
  * @returns `true` if running on macOS, `false` otherwise
  */
-export function isMac() {
-  try {
-    return navigator.userAgent.includes("Mac");
-  } catch {
-    return false;
+export function isMac(): boolean {
+  if (_isMacCached === undefined) {
+    try {
+      _isMacCached = navigator.userAgent.includes("Mac");
+    } catch {
+      _isMacCached = false;
+    }
   }
+  return _isMacCached;
+}
+
+/**
+ * Reset cached platform detection result.
+ * Only needed when the user agent string changes at runtime (e.g., in tests).
+ */
+export function resetPlatformCache(): void {
+  _isMacCached = undefined;
 }
 
 /**

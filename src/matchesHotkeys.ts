@@ -1,4 +1,3 @@
-import { isEqualWith } from "es-toolkit";
 import {
   and,
   type Comparator,
@@ -9,12 +8,14 @@ import {
 import {
   type Combination,
   type ParseCombinationOptions,
+  type ParsedCombination,
   parseCombination,
 } from "./parseCombination";
+import { resetPlatformCache } from "./preMap";
 
 export interface MatchesHotkeysOptions {
   /**
-   * Custom comparator passed to `isEqualWith` to decide whether a parsed hotkey
+   * Custom comparator to decide whether a parsed hotkey
    * combination matches the provided `KeyboardEvent`.
    * Defaults to `DEFAULT_COMPARATOR` (compares code, key, keyCode, which, meta/ctrl/shift/alt flags).
    */
@@ -36,7 +37,7 @@ export interface Hotkey {
 /**
  * Returns true if the keyboard event matches at least one provided hotkey.
  * Expands each hotkey via `parseCombination`, then compares each expanded
- * combination against the event using `isEqualWith` + the (optional) custom comparator.
+ * combination against the event using the (optional) custom comparator.
  */
 export function matchesHotkeys(
   hotkeys: Hotkey[],
@@ -45,19 +46,26 @@ export function matchesHotkeys(
 ) {
   return hotkeys.some(({ combination, options }) =>
     parseCombination(combination, options).some((parsedCombination) =>
-      isEqualWith(parsedCombination, event, comparator),
+      comparator(parsedCombination, event as unknown as ParsedCombination),
     ),
   );
 }
 
 if (import.meta.vitest) {
-  const { it, expect } = import.meta.vitest;
+  const { it, expect, afterEach } = import.meta.vitest;
   const originalUA = navigator.userAgent;
-  const defineUA = (ua: string) =>
+  const defineUA = (ua: string) => {
     Object.defineProperty(navigator, "userAgent", {
       value: ua,
       configurable: true,
     });
+    resetPlatformCache();
+  };
+
+  afterEach(() => {
+    defineUA(originalUA);
+    resetPlatformCache();
+  });
 
   // Simple helper to build a KeyboardEvent-like object for tests.
   const evt = (partial: Partial<KeyboardEvent>): KeyboardEvent =>
@@ -205,7 +213,6 @@ if (import.meta.vitest) {
         evt({ code: "KeyA", key: "a", keyCode: 65, which: 65, ctrlKey: true }),
       ),
     ).toBe(true);
-    defineUA(originalUA);
   });
 
   it("matchesHotkeys - shift-derived keys match real events", () => {

@@ -1,7 +1,6 @@
 docs
 dist
 build
-tests/fixtures/**/*
 *.js
 *.ts
 *.cjs

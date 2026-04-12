@@ -38,10 +38,14 @@ export const MODIFIERS_COMPARATOR = eq(
   "shiftKey",
 );
 
+/** Case-insensitive key comparator (handles Shift+letter key casing differences) */
+const eqKeyIgnoreCase: Comparator = (a, b) =>
+  a.key.toLowerCase() === b.key.toLowerCase();
+
 /**
  * Key comparator
  */
-export const COMPARE_BY_KEY = and(eq("key"), MODIFIERS_COMPARATOR);
+export const COMPARE_BY_KEY = and(eqKeyIgnoreCase, MODIFIERS_COMPARATOR);
 
 /**
  * Code comparator

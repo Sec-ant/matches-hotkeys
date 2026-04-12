@@ -306,7 +306,53 @@ export const CODE_ALIAS_MAP = new Map(
   }),
 );
 
-// Note: KEY_ALIAS_MAP intentionally omitted. We derive alias → codes on demand to keep a single source of truth.
+/** Lowercase key value to definitions mapping for O(1) lookups */
+export const KEY_VALUE_MAP = (() => {
+  const map = new Map<
+    string,
+    Array<{ key: string; code: string; keyCode: number }>
+  >();
+
+  const add = (
+    lowerKey: string,
+    entry: { key: string; code: string; keyCode: number },
+  ) => {
+    let entries = map.get(lowerKey);
+    if (!entries) {
+      entries = [];
+      map.set(lowerKey, entries);
+    }
+    entries.push(entry);
+  };
+
+  // Direct key values from KEY_DEFINITIONS
+  for (const [code, def] of Object.entries(KEY_DEFINITIONS)) {
+    add(def.key.toLowerCase(), { key: def.key, code, keyCode: def.keyCode });
+  }
+
+  // Shifted key values from SHIFT_KEY_MAPPINGS
+  for (const [baseCode, shiftedKey] of Object.entries(SHIFT_KEY_MAPPINGS)) {
+    const baseDef = KEY_DEFINITIONS[baseCode as keyof typeof KEY_DEFINITIONS];
+    if (baseDef) {
+      add(shiftedKey.toLowerCase(), {
+        key: shiftedKey,
+        code: baseCode,
+        keyCode: baseDef.keyCode,
+      });
+    }
+  }
+
+  return map;
+})();
+
+/** Lowercase alias to lowercase key value mapping for O(1) lookups */
+export const KEY_ALIAS_MAP = new Map(
+  Object.entries(KEY_ALIASES).flatMap(([keyValue, aliases]) =>
+    aliases.map(
+      (alias) => [alias.toLowerCase(), keyValue.toLowerCase()] as const,
+    ),
+  ),
+);
 
 /** Pre-built modifier lookup map for O(1) lookups */
 export const MODIFIER_KEY_MAP = new Map([

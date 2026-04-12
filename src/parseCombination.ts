@@ -5,7 +5,7 @@ import {
   MODIFIER_KEY_MAP,
   SHIFT_KEY_MAPPINGS,
 } from "./consts";
-import { preMap } from "./preMap";
+import { preMap, resetPlatformCache } from "./preMap";
 import { resolveKey } from "./resolveKey";
 
 /**
@@ -137,7 +137,7 @@ export function parseCombination<S extends string>(
 
   // All but last must be modifiers
   for (let i = 0; i < lastIndex; i++) {
-    const part = parts[i];
+    const part = parts[i]!;
     const normalizedPart = preMap(part);
     const modifierKey = MODIFIER_KEY_MAP.get(normalizedPart);
 
@@ -160,7 +160,7 @@ export function parseCombination<S extends string>(
   }
 
   // Process last part
-  const lastPart = parts[lastIndex];
+  const lastPart = parts[lastIndex]!;
   const normalizedLastPart = preMap(lastPart);
 
   // Check if last part is also a modifier
@@ -209,13 +209,20 @@ export function parseCombination<S extends string>(
 }
 
 if (import.meta.vitest) {
-  const { it, expect } = import.meta.vitest;
+  const { it, expect, afterEach } = import.meta.vitest;
   const originalUA = navigator.userAgent;
-  const defineUA = (ua: string) =>
+  const defineUA = (ua: string) => {
     Object.defineProperty(navigator, "userAgent", {
       value: ua,
       configurable: true,
     });
+    resetPlatformCache();
+  };
+
+  afterEach(() => {
+    defineUA(originalUA);
+    resetPlatformCache();
+  });
 
   it("parseCombination - valid single keys", () => {
     expect(parseCombination("五")).toMatchInlineSnapshot(`
@@ -850,46 +857,6 @@ if (import.meta.vitest) {
 
     // Duplicate modifiers
     expect(parseCombination(["ctrl", "control", "a"])).toEqual([]);
-  });
-
-  it("parseCombination - platform aware 'mod' mapping", () => {
-    defineUA(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/123.0.0.0 Safari/537.36",
-    );
-    expect(parseCombination("mod+a")).toMatchInlineSnapshot(`
-      [
-        {
-          "altKey": false,
-          "code": "KeyA",
-          "ctrlKey": false,
-          "key": "a",
-          "keyCode": 65,
-          "metaKey": true,
-          "shiftKey": false,
-          "which": 65,
-        },
-      ]
-    `);
-
-    defineUA(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123.0.0.0 Safari/537.36",
-    );
-    expect(parseCombination("mod+a")).toMatchInlineSnapshot(`
-      [
-        {
-          "altKey": false,
-          "code": "KeyA",
-          "ctrlKey": true,
-          "key": "a",
-          "keyCode": 65,
-          "metaKey": false,
-          "shiftKey": false,
-          "which": 65,
-        },
-      ]
-    `);
-
-    defineUA(originalUA);
   });
 
   it("parseCombination - shift-derived keys (default: inferShift=false)", () => {

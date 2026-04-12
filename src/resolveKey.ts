@@ -1,12 +1,11 @@
 import {
   CODE_ALIAS_MAP,
-  KEY_ALIASES,
-  KEY_DEFINITIONS,
+  KEY_ALIAS_MAP,
+  KEY_VALUE_MAP,
   LOWERCASE_CODE_MAP,
-  SHIFT_KEY_MAPPINGS,
 } from "./consts";
 import type { ParsedCombination } from "./parseCombination";
-import { preMap } from "./preMap";
+import { preMap, resetPlatformCache } from "./preMap";
 
 /**
  * Represents a single resolved key information containing standardized key properties
@@ -173,7 +172,7 @@ function findByCodeAlias(input: string): ResolvedKey | undefined {
 
 /**
  * Finds key definitions by matching the W3C key value (case-insensitive).
- * Time Complexity: O(n) where n is the number of keys with the same key value.
+ * Time Complexity: O(1) - Uses pre-built hash map for instant lookup.
  *
  * Key values represent the logical meaning of the key, such as "a", "Shift", or "Enter".
  * Some key values like "+" can come from multiple physical keys (Equal with Shift, NumpadAdd).
@@ -191,43 +190,20 @@ function findByCodeAlias(input: string): ResolvedKey | undefined {
  * ```
  */
 function findByKey(input: string): ResolvedKey[] {
-  // We need to check all definitions for keys that might have multiple sources
-  const allResults: ResolvedKey[] = [];
-
-  // First, check direct key matches in KEY_DEFINITIONS
-  Object.entries(KEY_DEFINITIONS).forEach(([code, definition]) => {
-    if (definition.key.toLowerCase() === input) {
-      allResults.push({
-        key: definition.key,
-        code: code,
-        keyCode: definition.keyCode,
-        which: definition.keyCode, // Use keyCode as which (they're equivalent)
-      });
-    }
-  });
-
-  // Then, check for shifted key combinations
-  Object.entries(SHIFT_KEY_MAPPINGS).forEach(([baseCode, shiftedKey]) => {
-    if (shiftedKey.toLowerCase() === input) {
-      const baseDefinition =
-        KEY_DEFINITIONS[baseCode as keyof typeof KEY_DEFINITIONS];
-      if (baseDefinition) {
-        allResults.push({
-          key: shiftedKey,
-          code: baseCode, // The actual code is still the base key
-          keyCode: baseDefinition.keyCode,
-          which: baseDefinition.keyCode, // Use keyCode as which (they're equivalent)
-        });
-      }
-    }
-  });
-
-  return allResults;
+  const entries = KEY_VALUE_MAP.get(input);
+  if (!entries) return [];
+  return entries.map((entry) => ({
+    key: entry.key,
+    code: entry.code,
+    keyCode: entry.keyCode,
+    which: entry.keyCode,
+  }));
 }
 
 /**
  * Finds key definitions by matching key aliases (case-insensitive).
- * Time Complexity: O(n) where n is the number of definitions that map to the aliased key.
+ * Time Complexity: O(1) - Uses pre-built hash maps for instant lookup.
+ * Delegates to `findByKey` after resolving the alias via `KEY_ALIAS_MAP`.
  *
  * Key aliases are alternative names for the same logical key meaning,
  * such as "esc" for "Escape" or "cmd" for "Meta".
@@ -245,58 +221,29 @@ function findByKey(input: string): ResolvedKey[] {
  * ```
  */
 function findByKeyAlias(input: string): ResolvedKey[] {
-  // find aliased key name from KEY_ALIASES
-  const aliasEntry = Object.entries(KEY_ALIASES).find(([, aliases]) =>
-    aliases.map((a) => a.toLowerCase()).includes(input),
-  );
-  if (!aliasEntry) return [];
-
-  const [aliasedKey] = aliasEntry;
-  // find all codes that yield this key (same logic as findByKey)
-  const results: ResolvedKey[] = [];
-
-  // First, check direct key matches in KEY_DEFINITIONS
-  Object.entries(KEY_DEFINITIONS).forEach(([code, def]) => {
-    if (def.key.toLowerCase() === aliasedKey.toLowerCase()) {
-      results.push({
-        key: def.key,
-        code: code,
-        keyCode: def.keyCode,
-        which: def.keyCode,
-      });
-    }
-  });
-
-  // Then, check for shifted key combinations
-  Object.entries(SHIFT_KEY_MAPPINGS).forEach(([baseCode, shiftedKey]) => {
-    if (shiftedKey.toLowerCase() === aliasedKey.toLowerCase()) {
-      const baseDefinition =
-        KEY_DEFINITIONS[baseCode as keyof typeof KEY_DEFINITIONS];
-      if (baseDefinition) {
-        results.push({
-          key: shiftedKey,
-          code: baseCode, // The actual code is still the base key
-          keyCode: baseDefinition.keyCode,
-          which: baseDefinition.keyCode,
-        });
-      }
-    }
-  });
-
-  return results;
+  const keyValue = KEY_ALIAS_MAP.get(input);
+  if (!keyValue) return [];
+  return findByKey(keyValue);
 }
 
 // === Vitest Inline Snapshot Tests ===
 // Test resolveKey function with various key names to capture their resolved data structures
 
 if (import.meta.vitest) {
-  const { it, expect } = import.meta.vitest;
+  const { it, expect, afterEach } = import.meta.vitest;
   const originalUA = navigator.userAgent;
-  const defineUA = (ua: string) =>
+  const defineUA = (ua: string) => {
     Object.defineProperty(navigator, "userAgent", {
       value: ua,
       configurable: true,
     });
+    resetPlatformCache();
+  };
+
+  afterEach(() => {
+    defineUA(originalUA);
+    resetPlatformCache();
+  });
 
   // Test comprehensive resolveKey snapshots for different key types and cases
   it("resolveKey snapshots", () => {
@@ -706,7 +653,5 @@ if (import.meta.vitest) {
         },
       ]
     `);
-    // Restore original
-    defineUA(originalUA);
   });
 }
